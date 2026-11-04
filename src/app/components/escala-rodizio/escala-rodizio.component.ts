@@ -100,6 +100,20 @@ import { EscalaSemana } from '../../models/cleanup.model';
             </div>
 
           </div>
+        } @empty {
+          <div class="col-span-full py-8 text-center text-slate-400">
+            <svg class="w-8 h-8 text-slate-300 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <p class="text-xs">Nenhum membro cadastrado para calcular o rodízio.</p>
+            <button
+              type="button"
+              (click)="service.abrirModalMembros()"
+              class="mt-2 text-xs font-semibold text-blue-600 hover:text-blue-700"
+            >
+              + Adicionar Membros
+            </button>
+          </div>
         }
       </div>
 

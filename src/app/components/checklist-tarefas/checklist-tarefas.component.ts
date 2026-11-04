@@ -244,11 +244,22 @@ export class ChecklistTarefasComponent {
     if (!tarefa) return;
 
     const seraConcluida = !tarefa.concluida;
+    const ativo = this.service.moradorAtivo();
+
+    if (seraConcluida && !ativo) {
+      this.service.abrirModalMembros();
+      this.ultimoAviso.set('Por favor, cadastre ao menos um morador para registrar a limpeza.');
+      setTimeout(() => {
+        if (this.ultimoAviso()) this.ultimoAviso.set(null);
+      }, 4000);
+      return;
+    }
+
     this.service.alternarTarefa(id);
 
-    if (seraConcluida) {
+    if (seraConcluida && ativo) {
       const horaStr = new Date().toLocaleTimeString('pt-BR');
-      this.ultimoAviso.set(`"${tarefa.titulo}" registrada por ${this.service.moradorAtivo().nome} às ${horaStr}!`);
+      this.ultimoAviso.set(`"${tarefa.titulo}" registrada por ${ativo.nome} às ${horaStr}!`);
       setTimeout(() => {
         if (this.ultimoAviso()) this.ultimoAviso.set(null);
       }, 4000);

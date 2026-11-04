@@ -4,6 +4,7 @@ import { DashboardResumoComponent } from './dashboard-resumo/dashboard-resumo.co
 import { ChecklistTarefasComponent } from './checklist-tarefas/checklist-tarefas.component';
 import { HistoricoAtividadesComponent } from './historico-atividades/historico-atividades.component';
 import { EscalaRodizioComponent } from './escala-rodizio/escala-rodizio.component';
+import { GerenciarMembrosComponent } from './gerenciar-membros/gerenciar-membros.component';
 import { CleanupService } from '../services/cleanup.service';
 
 describe('CleanUp Components Test Suite', () => {
@@ -15,7 +16,8 @@ describe('CleanUp Components Test Suite', () => {
         DashboardResumoComponent,
         ChecklistTarefasComponent,
         HistoricoAtividadesComponent,
-        EscalaRodizioComponent
+        EscalaRodizioComponent,
+        GerenciarMembrosComponent
       ],
       providers: [CleanupService]
     }).compileComponents();
@@ -26,35 +28,44 @@ describe('CleanUp Components Test Suite', () => {
   });
 
   describe('HeaderComponent', () => {
-    it('deve renderizar o logo CleanUp e badge de plantão', () => {
+    it('deve renderizar o logo CleanUp e botão de membros', () => {
       const fixture = TestBed.createComponent(HeaderComponent);
       fixture.detectChanges();
       const compiled = fixture.nativeElement as HTMLElement;
 
       expect(compiled.textContent).toContain('CleanUp');
-      expect(compiled.textContent).toContain('Plantão Ativo');
+      expect(compiled.textContent).toContain('Membros');
     });
 
-    it('deve exibir o morador atualmente ativo', () => {
+    it('deve exibir o morador atualmente ativo quando cadastrado', () => {
+      const service = TestBed.inject(CleanupService);
+      service.adicionarMorador('Quezia Costa');
       const fixture = TestBed.createComponent(HeaderComponent);
       fixture.detectChanges();
-      const service = TestBed.inject(CleanupService);
       const compiled = fixture.nativeElement as HTMLElement;
 
-      expect(compiled.textContent).toContain(service.moradorAtivo().nome);
+      expect(compiled.textContent).toContain('Quezia Costa');
     });
   });
 
   describe('DashboardResumoComponent', () => {
-    it('deve renderizar o card do responsável da semana e progresso', () => {
+    it('deve exibir mensagem para cadastrar moradores quando lista estiver vazia', () => {
       const fixture = TestBed.createComponent(DashboardResumoComponent);
       fixture.detectChanges();
-      const service = TestBed.inject(CleanupService);
       const compiled = fixture.nativeElement as HTMLElement;
 
-      const semanaAtual = service.semanaAtual();
-      expect(semanaAtual).toBeTruthy();
-      expect(compiled.textContent).toContain(semanaAtual!.responsavel.nome);
+      expect(compiled.textContent).toContain('Nenhum morador cadastrado');
+    });
+
+    it('deve renderizar o card do responsável da semana e progresso após adicionar morador', () => {
+      const service = TestBed.inject(CleanupService);
+      service.adicionarMorador('Quezia Costa');
+
+      const fixture = TestBed.createComponent(DashboardResumoComponent);
+      fixture.detectChanges();
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      expect(compiled.textContent).toContain('Quezia Costa');
       expect(compiled.textContent).toContain('Progresso das Tarefas');
       expect(compiled.textContent).toContain('%');
     });
@@ -70,7 +81,6 @@ describe('CleanUp Components Test Suite', () => {
       expect(compiled.textContent).toContain('Checklist de Tarefas');
       expect(service.tarefas().length).toBeGreaterThan(0);
 
-      // Simular filtro Banheiro
       service.setFiltroComodo('Banheiro');
       fixture.detectChanges();
       const todasBanheiro = service.tarefasFiltradas().every(t => t.comodo === 'Banheiro');
@@ -87,17 +97,31 @@ describe('CleanUp Components Test Suite', () => {
     });
   });
 
+  describe('GerenciarMembrosComponent', () => {
+    it('deve abrir modal e permitir cadastrar novo membro', () => {
+      const fixture = TestBed.createComponent(GerenciarMembrosComponent);
+      const service = TestBed.inject(CleanupService);
+      service.abrirModalMembros();
+      fixture.detectChanges();
+
+      const comp = fixture.componentInstance;
+      comp.novoNome = 'Novo Morador';
+      comp.adicionar();
+
+      expect(service.moradores().length).toBe(1);
+      expect(service.moradores()[0].nome).toBe('Novo Morador');
+    });
+  });
+
   describe('HistoricoAtividadesComponent', () => {
     it('deve exibir o log de transparência com formato HH:mm:ss', () => {
       const fixture = TestBed.createComponent(HistoricoAtividadesComponent);
       fixture.detectChanges();
-      const service = TestBed.inject(CleanupService);
       const compiled = fixture.nativeElement as HTMLElement;
 
       expect(compiled.textContent).toContain('Feed / Histórico de Atividades');
       expect(compiled.textContent).toContain('Log de Transparência');
 
-      // Testa formatação de hora precisa
       const dataTeste = new Date(2026, 10, 3, 14, 25, 30);
       const horaStr = fixture.componentInstance.formatarHoraPrecisa(dataTeste);
       expect(horaStr).toBe('14:25:30');
@@ -105,16 +129,19 @@ describe('CleanUp Components Test Suite', () => {
   });
 
   describe('EscalaRodizioComponent', () => {
-    it('deve exibir a escala de rodízio das próximas semanas', () => {
+    it('deve exibir aviso quando não há membros e rodízio após cadastrar', () => {
+      const service = TestBed.inject(CleanupService);
       const fixture = TestBed.createComponent(EscalaRodizioComponent);
       fixture.detectChanges();
-      const service = TestBed.inject(CleanupService);
-      const compiled = fixture.nativeElement as HTMLElement;
+      let compiled = fixture.nativeElement as HTMLElement;
 
-      expect(compiled.textContent).toContain('Visão da Escala de Rodízio');
+      expect(compiled.textContent).toContain('Nenhum membro cadastrado');
+
+      service.adicionarMorador('Quezia Costa');
+      fixture.detectChanges();
+      compiled = fixture.nativeElement as HTMLElement;
       expect(compiled.textContent).toContain('Semana Atual');
-      expect(service.escala().length).toBe(4);
+      expect(compiled.textContent).toContain('Quezia Costa');
     });
   });
 });
-

@@ -102,7 +102,7 @@ import { CleanupService } from '../../services/cleanup.service';
               </span>
               @if (service.progressoSemana().porcentagem === 100) {
                 <span class="text-emerald-600 font-medium flex items-center">
-                  Tudo limpo por aqui! ✨
+                  Tudo limpo por aqui!
                 </span>
               } @else {
                 <span class="text-slate-500">
@@ -126,6 +126,13 @@ import { CleanupService } from '../../services/cleanup.service';
           <div class="flex items-center gap-2">
             <button
               type="button"
+              (click)="service.abrirModalMembros()"
+              class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-800 hover:bg-slate-100 transition-colors border border-slate-200"
+            >
+              Membros ({{ service.moradores().length }})
+            </button>
+            <button
+              type="button"
               (click)="service.reiniciarCicloSemanal()"
               class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-800 hover:bg-slate-100 transition-colors border border-slate-200"
               title="Zerar tarefas do ciclo atual"
@@ -147,6 +154,29 @@ import { CleanupService } from '../../services/cleanup.service';
         </div>
 
       </div>
+    } @else {
+      <!-- Estado Vazio: Nenhum membro cadastrado ainda -->
+      <div class="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-8 text-center shadow-xs">
+        <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 mx-auto flex items-center justify-center mb-3">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+          </svg>
+        </div>
+        <h3 class="text-base font-bold text-slate-800">Nenhum morador cadastrado</h3>
+        <p class="text-xs text-slate-500 max-w-md mx-auto mt-1 mb-4">
+          Para ativar o plantão semanal e o rodízio automático das tarefas, cadastre os moradores do apartamento.
+        </p>
+        <button
+          type="button"
+          (click)="service.abrirModalMembros()"
+          class="inline-flex items-center px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs transition-colors"
+        >
+          <svg class="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Cadastrar Moradores
+        </button>
+      </div>
     }
   `
 })
@@ -160,4 +190,3 @@ export class DashboardResumoComponent {
     return `${dIni} a ${dFim}`;
   }
 }
-

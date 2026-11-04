@@ -5,6 +5,7 @@ import { DashboardResumoComponent } from './components/dashboard-resumo/dashboar
 import { ChecklistTarefasComponent } from './components/checklist-tarefas/checklist-tarefas.component';
 import { HistoricoAtividadesComponent } from './components/historico-atividades/historico-atividades.component';
 import { EscalaRodizioComponent } from './components/escala-rodizio/escala-rodizio.component';
+import { GerenciarMembrosComponent } from './components/gerenciar-membros/gerenciar-membros.component';
 
 @Component({
   selector: 'app-root',
@@ -15,7 +16,8 @@ import { EscalaRodizioComponent } from './components/escala-rodizio/escala-rodiz
     DashboardResumoComponent,
     ChecklistTarefasComponent,
     HistoricoAtividadesComponent,
-    EscalaRodizioComponent
+    EscalaRodizioComponent,
+    GerenciarMembrosComponent
   ],
   templateUrl: './app.html',
   styleUrl: './app.css'

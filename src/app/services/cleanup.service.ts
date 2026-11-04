@@ -11,31 +11,7 @@ const STORAGE_KEY_MORADOR_ATIVO = 'cleanup_morador_ativo';
   providedIn: 'root'
 })
 export class CleanupService {
-  // Lista padrão de moradores
-  private readonly moradoresIniciais: Morador[] = [
-    {
-      id: 'm1',
-      nome: 'Lucas Silva',
-      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=160&q=80'
-    },
-    {
-      id: 'm2',
-      nome: 'Quezia Costa',
-      avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=160&q=80'
-    },
-    {
-      id: 'm3',
-      nome: 'Matheus Oliveira',
-      avatarUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=160&q=80'
-    },
-    {
-      id: 'm4',
-      nome: 'Beatriz Santos',
-      avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=160&q=80'
-    }
-  ];
-
-  // Tarefas padrão do ciclo
+  // Tarefas padrão iniciais
   private readonly tarefasIniciais: Tarefa[] = [
     { id: 't1', titulo: 'Limpar Banheiro Principal (Pia, Vaso e Box)', comodo: 'Banheiro', concluida: false },
     { id: 't2', titulo: 'Lavar e Guardar Louça Acumulada', comodo: 'Cozinha', concluida: false },
@@ -47,70 +23,15 @@ export class CleanupService {
     { id: 't8', titulo: 'Limpar Vidros e Varrer Varanda', comodo: 'Varanda', concluida: false }
   ];
 
-  // Escala inicial de 4 semanas a partir de hoje
-  private getEscalaInicial(): EscalaSemana[] {
-    const hoje = new Date();
-    // início da semana (segunda-feira recente ou atual)
-    const diaSemana = hoje.getDay();
-    const diffParaSegunda = diaSemana === 0 ? -6 : 1 - diaSemana;
-    
-    const baseSegunda = new Date(hoje);
-    baseSegunda.setDate(hoje.getDate() + diffParaSegunda);
-    baseSegunda.setHours(0, 0, 0, 0);
-
-    const escala: EscalaSemana[] = [];
-    const nomesOrdem = this.moradoresIniciais;
-
-    for (let i = 0; i < 4; i++) {
-      const dataInicio = new Date(baseSegunda);
-      dataInicio.setDate(baseSegunda.getDate() + i * 7);
-
-      const dataFim = new Date(dataInicio);
-      dataFim.setDate(dataInicio.getDate() + 6);
-      dataFim.setHours(23, 59, 59, 999);
-
-      escala.push({
-        semanaId: `sem-${i + 1}`,
-        dataInicio,
-        dataFim,
-        responsavel: nomesOrdem[i % nomesOrdem.length],
-        status: i === 0 ? 'EM_ANDAMENTO' : 'PENDENTE'
-      });
-    }
-
-    return escala;
-  }
-
-  // Histórico inicial com alguns registros demonstrativos
-  private getHistoricoInicial(): RegistroLimpeza[] {
-    const hoje = new Date();
-    const ontem = new Date(hoje.getTime() - 24 * 60 * 60 * 1000);
-    const anteontem = new Date(hoje.getTime() - 48 * 60 * 60 * 1000);
-
-    return [
-      {
-        id: 'reg-1',
-        moradorId: 'm1',
-        moradorNome: 'Lucas Silva',
-        tarefaNome: 'Desinfetar Pia e Fogão',
-        dataHora: new Date(ontem.setHours(19, 42, 18))
-      },
-      {
-        id: 'reg-2',
-        moradorId: 'm1',
-        moradorNome: 'Lucas Silva',
-        tarefaNome: 'Esvaziar Lixeiras e Descartar Lixo Externo',
-        dataHora: new Date(anteontem.setHours(21, 15, 4))
-      }
-    ];
-  }
-
-  // SIGNALS PRINCIPAIS DE ESTADO
+  // SIGNALS PRINCIPAIS DE ESTADO (Sem dados mocados - inicia vazio caso não haja no storage)
   readonly moradores = signal<Morador[]>(this.carregarMoradores());
   readonly escala = signal<EscalaSemana[]>(this.carregarEscala());
   readonly tarefas = signal<Tarefa[]>(this.carregarTarefas());
   readonly historico = signal<RegistroLimpeza[]>(this.carregarHistorico());
-  readonly moradorAtivo = signal<Morador>(this.carregarMoradorAtivo());
+  readonly moradorAtivo = signal<Morador | null>(this.carregarMoradorAtivo());
+
+  // Controle de Modal de Gerenciamento de Membros
+  readonly modalMembrosAberto = signal<boolean>(false);
 
   // SIGNALS DE FILTROS DO FEED
   readonly filtroMorador = signal<string>('TODOS');
@@ -169,7 +90,12 @@ export class CleanupService {
         localStorage.setItem(STORAGE_KEY_ESCALA, JSON.stringify(this.escala()));
         localStorage.setItem(STORAGE_KEY_TAREFAS, JSON.stringify(this.tarefas()));
         localStorage.setItem(STORAGE_KEY_HISTORICO, JSON.stringify(this.historico()));
-        localStorage.setItem(STORAGE_KEY_MORADOR_ATIVO, JSON.stringify(this.moradorAtivo()));
+        const ativo = this.moradorAtivo();
+        if (ativo) {
+          localStorage.setItem(STORAGE_KEY_MORADOR_ATIVO, JSON.stringify(ativo));
+        } else {
+          localStorage.removeItem(STORAGE_KEY_MORADOR_ATIVO);
+        }
       }
     });
 
@@ -192,11 +118,95 @@ export class CleanupService {
     });
   }
 
-  // AÇÕES
+  // GERENCIAMENTO DE MEMBROS / MORADORES
 
-  /**
-   * Marca ou desmarca tarefa, gerando log de transparência imediato com data e hora precisa
-   */
+  abrirModalMembros(): void {
+    this.modalMembrosAberto.set(true);
+  }
+
+  fecharModalMembros(): void {
+    this.modalMembrosAberto.set(false);
+  }
+
+  adicionarMorador(nome: string, avatarUrl?: string): Morador {
+    const limpo = nome.trim();
+    if (!limpo) {
+      throw new Error('Nome do morador não pode ser vazio');
+    }
+
+    const novo: Morador = {
+      id: `m-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      nome: limpo,
+      avatarUrl: avatarUrl?.trim() || `https://ui-avatars.com/api/?name=${encodeURIComponent(limpo)}&background=2563eb&color=fff&bold=true`
+    };
+
+    const novosMoradores = [...this.moradores(), novo];
+    this.moradores.set(novosMoradores);
+
+    // Se não havia morador ativo, define o recém-criado
+    if (!this.moradorAtivo()) {
+      this.moradorAtivo.set(novo);
+    }
+
+    // Atualiza a escala de rodízio automaticamente
+    this.escala.set(this.gerarEscalaParaMoradores(novosMoradores));
+
+    return novo;
+  }
+
+  removerMorador(id: string): void {
+    const novosMoradores = this.moradores().filter(m => m.id !== id);
+    this.moradores.set(novosMoradores);
+
+    // Se o morador removido era o ativo, seleciona outro ou null
+    if (this.moradorAtivo()?.id === id) {
+      this.moradorAtivo.set(novosMoradores.length > 0 ? novosMoradores[0] : null);
+    }
+
+    // Se não restou nenhum morador, esvazia a escala; caso contrário, recalcula
+    if (novosMoradores.length === 0) {
+      this.escala.set([]);
+    } else {
+      this.escala.set(this.gerarEscalaParaMoradores(novosMoradores));
+    }
+  }
+
+  gerarEscalaParaMoradores(moradores: Morador[]): EscalaSemana[] {
+    if (moradores.length === 0) return [];
+
+    const hoje = new Date();
+    const diaSemana = hoje.getDay();
+    const diffParaSegunda = diaSemana === 0 ? -6 : 1 - diaSemana;
+    
+    const baseSegunda = new Date(hoje);
+    baseSegunda.setDate(hoje.getDate() + diffParaSegunda);
+    baseSegunda.setHours(0, 0, 0, 0);
+
+    const escala: EscalaSemana[] = [];
+    const totalSemanas = Math.max(4, moradores.length);
+
+    for (let i = 0; i < totalSemanas; i++) {
+      const dataInicio = new Date(baseSegunda);
+      dataInicio.setDate(baseSegunda.getDate() + i * 7);
+
+      const dataFim = new Date(dataInicio);
+      dataFim.setDate(dataInicio.getDate() + 6);
+      dataFim.setHours(23, 59, 59, 999);
+
+      escala.push({
+        semanaId: `sem-${i + 1}-${moradores[i % moradores.length].id}`,
+        dataInicio,
+        dataFim,
+        responsavel: moradores[i % moradores.length],
+        status: i === 0 ? 'EM_ANDAMENTO' : 'PENDENTE'
+      });
+    }
+
+    return escala;
+  }
+
+  // AÇÕES DO CHECKLIST E CICLO
+
   alternarTarefa(tarefaId: string, moradorResponsavel?: Morador): void {
     const morador = moradorResponsavel || this.moradorAtivo();
     const tarefaAlvo = this.tarefas().find(t => t.id === tarefaId);
@@ -208,7 +218,7 @@ export class CleanupService {
       lista.map(t => (t.id === tarefaId ? { ...t, concluida: novoEstado } : t))
     );
 
-    if (novoEstado) {
+    if (novoEstado && morador) {
       // Registra a limpeza no feed com a hora exata
       const novoRegistro: RegistroLimpeza = {
         id: `reg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -250,8 +260,9 @@ export class CleanupService {
     const lista = this.escala();
     if (lista.length === 0) return;
 
-    // Conclui a atual e avança a fila de rodízio
     const moradores = this.moradores();
+    if (moradores.length === 0) return;
+
     const ultimaSemana = lista[lista.length - 1];
     const proximaDataInicio = new Date(ultimaSemana.dataFim);
     proximaDataInicio.setDate(proximaDataInicio.getDate() + 1);
@@ -281,7 +292,6 @@ export class CleanupService {
     }
 
     this.escala.set(novaLista);
-    // Reinicia as tarefas para o novo ciclo
     this.tarefas.update(tList => tList.map(t => ({ ...t, concluida: false })));
   }
 
@@ -289,7 +299,7 @@ export class CleanupService {
     this.historico.set([]);
   }
 
-  setMoradorAtivo(morador: Morador): void {
+  setMoradorAtivo(morador: Morador | null): void {
     this.moradorAtivo.set(morador);
   }
 
@@ -310,9 +320,9 @@ export class CleanupService {
   private carregarMoradores(): Morador[] {
     try {
       const data = localStorage.getItem(STORAGE_KEY_MORADORES);
-      return data ? JSON.parse(data) : this.moradoresIniciais;
+      return data ? JSON.parse(data) : [];
     } catch {
-      return this.moradoresIniciais;
+      return [];
     }
   }
 
@@ -328,21 +338,21 @@ export class CleanupService {
   private carregarHistorico(): RegistroLimpeza[] {
     try {
       const data = localStorage.getItem(STORAGE_KEY_HISTORICO);
-      if (!data) return this.getHistoricoInicial();
+      if (!data) return [];
       const parsed = JSON.parse(data);
       return parsed.map((item: any) => ({
         ...item,
         dataHora: new Date(item.dataHora)
       }));
     } catch {
-      return this.getHistoricoInicial();
+      return [];
     }
   }
 
   private carregarEscala(): EscalaSemana[] {
     try {
       const data = localStorage.getItem(STORAGE_KEY_ESCALA);
-      if (!data) return this.getEscalaInicial();
+      if (!data) return [];
       const parsed = JSON.parse(data);
       return parsed.map((item: any) => ({
         ...item,
@@ -350,17 +360,18 @@ export class CleanupService {
         dataFim: new Date(item.dataFim)
       }));
     } catch {
-      return this.getEscalaInicial();
+      return [];
     }
   }
 
-  private carregarMoradorAtivo(): Morador {
+  private carregarMoradorAtivo(): Morador | null {
     try {
       const data = localStorage.getItem(STORAGE_KEY_MORADOR_ATIVO);
       if (data) return JSON.parse(data);
-      return this.moradoresIniciais[0];
+      const moradores = this.carregarMoradores();
+      return moradores.length > 0 ? moradores[0] : null;
     } catch {
-      return this.moradoresIniciais[0];
+      return null;
     }
   }
 }

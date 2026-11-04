@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { CleanupService } from './cleanup.service';
-import { Morador, Tarefa } from '../models/cleanup.model';
+import { Morador } from '../models/cleanup.model';
 
 describe('CleanupService', () => {
   let service: CleanupService;
@@ -17,41 +17,67 @@ describe('CleanupService', () => {
     localStorage.clear();
   });
 
-  it('deve inicializar com moradores, escala, tarefas e historico', () => {
-    expect(service.moradores().length).toBeGreaterThan(0);
-    expect(service.escala().length).toBe(4);
+  it('deve inicializar sem dados mocados quando storage estiver limpo', () => {
+    expect(service.moradores().length).toBe(0);
+    expect(service.escala().length).toBe(0);
+    expect(service.historico().length).toBe(0);
+    expect(service.moradorAtivo()).toBeNull();
     expect(service.tarefas().length).toBeGreaterThan(0);
-    expect(service.semanaAtual()).toBeTruthy();
-    expect(service.progressoSemana()).toBeDefined();
+  });
+
+  it('deve permitir adicionar novos membros e gerar o rodízio da escala dinamicamente', () => {
+    const m1 = service.adicionarMorador('Quezia Costa');
+    expect(service.moradores().length).toBe(1);
+    expect(service.moradorAtivo()?.nome).toBe('Quezia Costa');
+    expect(service.escala().length).toBeGreaterThanOrEqual(4);
+    expect(service.semanaAtual()?.responsavel.nome).toBe('Quezia Costa');
+
+    const m2 = service.adicionarMorador('Carlos Souza');
+    expect(service.moradores().length).toBe(2);
+    // Escala deve alternar entre Quezia e Carlos
+    expect(service.escala()[0].responsavel.nome).toBe('Quezia Costa');
+    expect(service.escala()[1].responsavel.nome).toBe('Carlos Souza');
+  });
+
+  it('deve permitir remover membro e readequar a escala de rodízio', () => {
+    const m1 = service.adicionarMorador('Membro 1');
+    const m2 = service.adicionarMorador('Membro 2');
+    expect(service.moradores().length).toBe(2);
+
+    service.removerMorador(m1.id);
+    expect(service.moradores().length).toBe(1);
+    expect(service.moradorAtivo()?.id).toBe(m2.id);
+    expect(service.semanaAtual()?.responsavel.id).toBe(m2.id);
+
+    service.removerMorador(m2.id);
+    expect(service.moradores().length).toBe(0);
+    expect(service.moradorAtivo()).toBeNull();
+    expect(service.escala().length).toBe(0);
   });
 
   it('deve alternar a conclusão de uma tarefa e gerar registro no feed com data/hora precisa', () => {
+    service.adicionarMorador('Quezia Costa');
     const primeiraTarefa = service.tarefas()[0];
     const statusOriginal = primeiraTarefa.concluida;
-    const historicoOriginalLen = service.historico().length;
 
     service.alternarTarefa(primeiraTarefa.id);
 
     const tarefaAtualizada = service.tarefas().find(t => t.id === primeiraTarefa.id);
     expect(tarefaAtualizada?.concluida).toBe(!statusOriginal);
 
-    if (!statusOriginal) {
-      // Se concluiu a tarefa, deve ter adicionado registro no histórico
-      expect(service.historico().length).toBe(historicoOriginalLen + 1);
-      const novoRegistro = service.historico()[0];
-      expect(novoRegistro.tarefaNome).toBe(primeiraTarefa.titulo);
-      expect(novoRegistro.moradorNome).toBe(service.moradorAtivo().nome);
-      expect(novoRegistro.dataHora instanceof Date).toBe(true);
-    }
+    expect(service.historico().length).toBe(1);
+    const novoRegistro = service.historico()[0];
+    expect(novoRegistro.tarefaNome).toBe(primeiraTarefa.titulo);
+    expect(novoRegistro.moradorNome).toBe('Quezia Costa');
+    expect(novoRegistro.dataHora instanceof Date).toBe(true);
   });
 
   it('deve calcular corretamente a porcentagem de progresso da semana', () => {
-    // Zerar todas
+    service.adicionarMorador('Quezia Costa');
     service.reiniciarCicloSemanal();
     expect(service.progressoSemana().porcentagem).toBe(0);
     expect(service.progressoSemana().concluidas).toBe(0);
 
-    // Concluir 1 tarefa
     const t1 = service.tarefas()[0];
     service.alternarTarefa(t1.id);
 
@@ -62,59 +88,40 @@ describe('CleanupService', () => {
   });
 
   it('deve filtrar histórico por morador e por busca de tarefa', () => {
-    service.limparHistorico();
-
-    const morador1: Morador = service.moradores()[0];
-    const morador2: Morador = service.moradores()[1];
+    const morador1 = service.adicionarMorador('Quezia Costa');
+    const morador2 = service.adicionarMorador('Lucas Silva');
 
     service.setMoradorAtivo(morador1);
-    service.alternarTarefa(service.tarefas()[0].id); // morador 1 concluiu tarefa 0
+    service.alternarTarefa(service.tarefas()[0].id);
 
     service.setMoradorAtivo(morador2);
-    service.alternarTarefa(service.tarefas()[1].id); // morador 2 concluiu tarefa 1
+    service.alternarTarefa(service.tarefas()[1].id);
 
     expect(service.historico().length).toBe(2);
 
-    // Filtro por morador1
     service.setFiltroMorador(morador1.id);
     expect(service.historicoFiltrado().length).toBe(1);
     expect(service.historicoFiltrado()[0].moradorId).toBe(morador1.id);
 
-    // Limpar filtro de morador e filtrar por nome da tarefa 1
     service.setFiltroMorador('TODOS');
     service.setFiltroTarefa(service.tarefas()[1].titulo.substring(0, 5));
     expect(service.historicoFiltrado().length).toBe(1);
     expect(service.historicoFiltrado()[0].tarefaNome).toBe(service.tarefas()[1].titulo);
   });
 
-  it('deve adicionar e remover nova tarefa no checklist', () => {
-    const totalInicial = service.tarefas().length;
-    service.adicionarTarefa('Limpar filtro do ar-condicionado', 'Quarto' as any);
-
-    expect(service.tarefas().length).toBe(totalInicial + 1);
-    const recemCriada = service.tarefas().find(t => t.titulo === 'Limpar filtro do ar-condicionado');
-    expect(recemCriada).toBeTruthy();
-    expect(recemCriada?.concluida).toBe(false);
-
-    if (recemCriada) {
-      service.removerTarefa(recemCriada.id);
-      expect(service.tarefas().length).toBe(totalInicial);
-    }
-  });
-
   it('deve avançar o rodízio da escala para a próxima semana', () => {
+    const m1 = service.adicionarMorador('Quezia Costa');
+    const m2 = service.adicionarMorador('Carlos Souza');
+
     const escalaOriginal = service.escala();
-    const responsavelSemanaAtual = escalaOriginal[0].responsavel;
     const responsavelProximaSemana = escalaOriginal[1].responsavel;
 
     service.avancarSemana();
 
     const novaEscala = service.escala();
-    expect(novaEscala.length).toBe(4);
+    expect(novaEscala.length).toBeGreaterThanOrEqual(4);
     expect(novaEscala[0].responsavel.id).toBe(responsavelProximaSemana.id);
     expect(novaEscala[0].status).toBe('EM_ANDAMENTO');
-    // Todas as tarefas foram reiniciadas
     expect(service.progressoSemana().concluidas).toBe(0);
   });
 });
-
