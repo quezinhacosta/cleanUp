@@ -2,6 +2,8 @@ import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CleanupService } from '../../services/cleanup.service';
+import { RelatorioPdfService } from '../../services/relatorio-pdf.service';
+import { Morador } from '../../models/cleanup.model';
 
 @Component({
   selector: 'app-gerenciar-membros',
@@ -116,6 +118,18 @@ import { CleanupService } from '../../services/cleanup.service';
                   <div class="flex items-center space-x-2">
                     <button
                       type="button"
+                      (click)="baixarPdf(morador)"
+                      class="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors font-medium flex items-center space-x-1 border border-blue-200"
+                      title="Baixar relatório em PDF deste membro"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <span>PDF</span>
+                    </button>
+
+                    <button
+                      type="button"
                       (click)="service.removerMorador(morador.id)"
                       class="text-xs text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-50 transition-colors font-medium"
                       title="Remover membro"
@@ -151,10 +165,19 @@ import { CleanupService } from '../../services/cleanup.service';
 })
 export class GerenciarMembrosComponent {
   service = inject(CleanupService);
+  pdfService = inject(RelatorioPdfService);
 
   novoNome = '';
   novoAvatar = '';
   mensagemFeedback = signal<string | null>(null);
+
+  baixarPdf(morador: Morador): void {
+    this.pdfService.gerarRelatorioMorador(
+      morador,
+      this.service.historico(),
+      this.service.tarefas()
+    );
+  }
 
   adicionar(): void {
     if (!this.novoNome.trim()) return;
