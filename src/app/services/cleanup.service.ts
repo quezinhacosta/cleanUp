@@ -173,7 +173,7 @@ export class CleanupService {
     }
 
     // Atualiza as semanas removendo o morador excluído
-    let escalaAtual = this.escala().map(sem => {
+    let escalaAtual: EscalaSemana[] = this.escala().map(sem => {
       const novosResponsaveis = (sem.responsaveis || []).filter(m => m.id !== id);
       return {
         ...sem,
