@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CleanupService } from '../../services/cleanup.service';
+import { EscalaSemana } from '../../models/cleanup.model';
 
 @Component({
   selector: 'app-dashboard-resumo',
@@ -17,24 +18,57 @@ import { CleanupService } from '../../services/cleanup.service';
           
           <!-- Lado Esquerdo: Responsável da Semana & Ciclo -->
           <div class="flex items-start sm:items-center gap-4 sm:gap-5">
-            <div class="relative">
-              <img
-                [src]="semana.responsavel.avatarUrl || 'https://ui-avatars.com/api/?name=' + semana.responsavel.nome"
-                [alt]="semana.responsavel.nome"
-                class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover ring-4 ring-blue-50 border-2 border-white shadow-md"
-              />
-              <span class="absolute -bottom-1 -right-1 bg-blue-600 text-white p-1 rounded-lg shadow-sm" title="Responsável da semana">
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+            @if (semana.responsaveis && semana.responsaveis.length > 1) {
+              <!-- Múltiplos Moradores Escalados (Dupla/Equipe) -->
+              <div class="relative flex -space-x-3 overflow-hidden p-1">
+                @for (resp of semana.responsaveis; track resp.id; let idx = $index) {
+                  <img
+                    [src]="resp.avatarUrl || 'https://ui-avatars.com/api/?name=' + resp.nome"
+                    [alt]="resp.nome"
+                    class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover ring-2 ring-white border-2 border-slate-100 shadow-md transition-transform hover:scale-105 hover:z-10"
+                    [title]="resp.nome"
+                  />
+                }
+              </div>
+            } @else if (semana.responsaveis && semana.responsaveis.length === 1) {
+              <!-- 1 Único Morador -->
+              <div class="relative">
+                <img
+                  [src]="semana.responsaveis[0].avatarUrl || 'https://ui-avatars.com/api/?name=' + semana.responsaveis[0].nome"
+                  [alt]="semana.responsaveis[0].nome"
+                  class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover ring-4 ring-blue-50 border-2 border-white shadow-md"
+                />
+                <span class="absolute -bottom-1 -right-1 bg-blue-600 text-white p-1 rounded-lg shadow-sm" title="Responsável da semana">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                  </svg>
+                </span>
+              </div>
+            } @else {
+              <!-- Nenhum Morador Escalado Nesta Semana -->
+              <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50/50 flex flex-col items-center justify-center text-amber-500 shadow-xs">
+                <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-              </span>
-            </div>
+                <span class="text-[9px] font-bold uppercase mt-0.5">Vago</span>
+              </div>
+            }
 
             <div>
               <div class="flex flex-wrap items-center gap-2 mb-1">
-                <span class="text-xs font-semibold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-md">
-                  Plantão da Semana
-                </span>
+                @if (semana.responsaveis && semana.responsaveis.length > 1) {
+                  <span class="text-xs font-semibold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-md border border-indigo-200">
+                    Plantão Compartilhado ({{ semana.responsaveis.length }} moradores)
+                  </span>
+                } @else if (semana.responsaveis && semana.responsaveis.length === 1) {
+                  <span class="text-xs font-semibold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-md">
+                    Plantão da Semana
+                  </span>
+                } @else {
+                  <span class="text-xs font-semibold uppercase tracking-wider text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200">
+                    Sem Morador Escalado
+                  </span>
+                }
                 
                 <!-- Status Badge -->
                 @switch (semana.status) {
@@ -61,7 +95,7 @@ import { CleanupService } from '../../services/cleanup.service';
               </div>
 
               <h2 class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                {{ semana.responsavel.nome }}
+                {{ formatarNomesResponsaveis(semana) }}
               </h2>
 
               <p class="text-xs sm:text-sm text-slate-500 flex items-center mt-0.5">
@@ -182,6 +216,20 @@ import { CleanupService } from '../../services/cleanup.service';
 })
 export class DashboardResumoComponent {
   service = inject(CleanupService);
+
+  formatarNomesResponsaveis(semana: EscalaSemana): string {
+    const lista = semana.responsaveis || (semana.responsavel ? [semana.responsavel] : []);
+    if (lista.length === 0) {
+      return 'Nenhum morador escalado';
+    }
+    if (lista.length === 1) {
+      return lista[0].nome;
+    }
+    if (lista.length === 2) {
+      return `${lista[0].nome} & ${lista[1].nome}`;
+    }
+    return `${lista[0].nome}, ${lista[1].nome} +${lista.length - 2}`;
+  }
 
   formatarPeriodo(inicio: any, fim: any): string {
     const dIniObj = new Date(inicio);

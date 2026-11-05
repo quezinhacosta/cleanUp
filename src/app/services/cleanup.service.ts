@@ -162,18 +162,6 @@ export class CleanupService {
     const novosMoradores = this.moradores().filter(m => m.id !== id);
     this.moradores.set(novosMoradores);
 
-    // Remove das semanas da escala
-    this.escala.update(semanas =>
-      semanas.map(sem => {
-        const novosResponsaveis = (sem.responsaveis || []).filter(m => m.id !== id);
-        return {
-          ...sem,
-          responsaveis: novosResponsaveis,
-          responsavel: novosResponsaveis.length > 0 ? novosResponsaveis[0] : null
-        };
-      })
-    );
-
     if (novosMoradores.length === 0) {
       this.moradorAtivo.set(null);
       this.escala.set([]);
@@ -183,6 +171,29 @@ export class CleanupService {
     if (this.moradorAtivo()?.id === id) {
       this.moradorAtivo.set(novosMoradores[0]);
     }
+
+    // Atualiza as semanas removendo o morador excluído
+    let escalaAtual = this.escala().map(sem => {
+      const novosResponsaveis = (sem.responsaveis || []).filter(m => m.id !== id);
+      return {
+        ...sem,
+        responsaveis: novosResponsaveis,
+        responsavel: novosResponsaveis.length > 0 ? novosResponsaveis[0] : null
+      };
+    });
+
+    // Se a semana atual ficou desocupada pela remoção do morador, atribui o primeiro morador remanescente
+    if (escalaAtual.length > 0 && escalaAtual[0].responsaveis.length === 0) {
+      escalaAtual[0].responsaveis = [novosMoradores[0]];
+      escalaAtual[0].responsavel = novosMoradores[0];
+    }
+
+    // Recompõe o ciclo das semanas futuras entre os moradores restantes
+    if (escalaAtual.length > 0) {
+      escalaAtual = this.recomporEscalaComNovosMoradores(escalaAtual[0], novosMoradores);
+    }
+
+    this.escala.set(escalaAtual);
   }
 
   gerarEscalaParaMoradores(moradores: Morador[]): EscalaSemana[] {
@@ -334,6 +345,95 @@ export class CleanupService {
         return sem;
       })
     );
+  }
+
+  /**
+   * Remove todos os moradores de uma semana específica (deixa a semana vazia)
+   */
+  limparMoradoresDaSemana(semanaId: string): void {
+    this.escala.update(semanas =>
+      semanas.map(sem =>
+        sem.semanaId === semanaId
+          ? { ...sem, responsaveis: [], responsavel: null }
+          : sem
+      )
+    );
+  }
+
+  /**
+   * Adiciona uma nova semana futura ao final da escala
+   */
+  adicionarSemanaNaEscala(): void {
+    const semanas = this.escala();
+    let dataInicio: Date;
+
+    if (semanas.length > 0) {
+      const ultima = semanas[semanas.length - 1];
+      dataInicio = new Date(ultima.dataFim);
+      dataInicio.setDate(dataInicio.getDate() + 1);
+      dataInicio.setHours(0, 0, 0, 0);
+    } else {
+      const hoje = new Date();
+      const diaSemana = hoje.getDay();
+      const diffParaSegunda = diaSemana === 0 ? -6 : 1 - diaSemana;
+      dataInicio = new Date(hoje);
+      dataInicio.setDate(hoje.getDate() + diffParaSegunda);
+      dataInicio.setHours(0, 0, 0, 0);
+    }
+
+    const dataFim = new Date(dataInicio);
+    dataFim.setDate(dataInicio.getDate() + 6);
+    dataFim.setHours(23, 59, 59, 999);
+
+    const novaSemana: EscalaSemana = {
+      semanaId: `sem-${semanas.length + 1}-${Date.now()}`,
+      dataInicio,
+      dataFim,
+      responsaveis: [],
+      responsavel: null,
+      status: 'PENDENTE'
+    };
+
+    this.escala.update(s => [...s, novaSemana]);
+  }
+
+  /**
+   * Remove uma semana planejada (não permite remover a semana atual em andamento)
+   */
+  removerSemana(semanaId: string): void {
+    this.escala.update(semanas => {
+      if (semanas.length <= 1 || semanas[0].semanaId === semanaId) return semanas;
+      return semanas.filter(s => s.semanaId !== semanaId);
+    });
+  }
+
+  /**
+   * Redefine a escala de rodízio equilibrada entre todos os moradores cadastrados
+   */
+  redefinirEscala(): void {
+    const moradores = this.moradores();
+    if (moradores.length === 0) {
+      this.escala.set([]);
+      return;
+    }
+
+    const semanaAtual = this.semanaAtual();
+    const baseInicio = semanaAtual ? new Date(semanaAtual.dataInicio) : new Date();
+    const baseFim = new Date(baseInicio);
+    baseFim.setDate(baseInicio.getDate() + 6);
+    baseFim.setHours(23, 59, 59, 999);
+
+    const primeiraSemana: EscalaSemana = {
+      semanaId: `sem-1-${moradores[0].id}-${Date.now()}`,
+      dataInicio: baseInicio,
+      dataFim: baseFim,
+      responsaveis: [moradores[0]],
+      responsavel: moradores[0],
+      status: 'EM_ANDAMENTO'
+    };
+
+    const novaEscala = this.recomporEscalaComNovosMoradores(primeiraSemana, moradores);
+    this.escala.set(novaEscala);
   }
 
   // AÇÕES DO CHECKLIST E CICLO

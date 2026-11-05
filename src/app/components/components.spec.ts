@@ -100,6 +100,35 @@ describe('CleanUp Components Test Suite', () => {
       expect(compiled.textContent).toContain('Progresso das Tarefas');
       expect(compiled.textContent).toContain('%');
     });
+
+    it('deve renderizar múltiplos moradores em destaque de plantão compartilhado', () => {
+      const service = TestBed.inject(CleanupService);
+      const m1 = service.adicionarMorador('Quezia Costa');
+      const m2 = service.adicionarMorador('Lucas Silva');
+      const sem1 = service.escala()[0];
+      service.adicionarMoradorNaSemana(sem1.semanaId, m2.id);
+
+      const fixture = TestBed.createComponent(DashboardResumoComponent);
+      fixture.detectChanges();
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      expect(compiled.textContent).toContain('Plantão Compartilhado');
+      expect(compiled.textContent).toContain('Quezia Costa & Lucas Silva');
+    });
+
+    it('deve exibir estado de semana sem morador escalado com segurança', () => {
+      const service = TestBed.inject(CleanupService);
+      service.adicionarMorador('Quezia Costa');
+      const sem1 = service.escala()[0];
+      service.limparMoradoresDaSemana(sem1.semanaId);
+
+      const fixture = TestBed.createComponent(DashboardResumoComponent);
+      fixture.detectChanges();
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      expect(compiled.textContent).toContain('Sem Morador Escalado');
+      expect(compiled.textContent).toContain('Nenhum morador escalado');
+    });
   });
 
   describe('ChecklistTarefasComponent', () => {
@@ -173,13 +202,85 @@ describe('CleanUp Components Test Suite', () => {
       fixture.detectChanges();
       let compiled = fixture.nativeElement as HTMLElement;
 
-      expect(compiled.textContent).toContain('Nenhum membro cadastrado');
+      expect(compiled.textContent).toContain('Nenhum ciclo de rodízio cadastrado');
 
       service.adicionarMorador('Quezia Costa');
       fixture.detectChanges();
       compiled = fixture.nativeElement as HTMLElement;
       expect(compiled.textContent).toContain('Semana Atual');
       expect(compiled.textContent).toContain('Quezia Costa');
+    });
+
+    it('deve permitir arrastar morador e soltar na semana de destino', () => {
+      const service = TestBed.inject(CleanupService);
+      const m1 = service.adicionarMorador('Quezia Costa');
+      const m2 = service.adicionarMorador('Carlos Souza');
+
+      const fixture = TestBed.createComponent(EscalaRodizioComponent);
+      fixture.detectChanges();
+      const comp = fixture.componentInstance;
+
+      const semanas = service.escala();
+      const sem1 = semanas[0];
+      const sem2 = semanas[1];
+
+      // Inicia arrasto de Carlos para a semana 1
+      const mockDragEvent = {
+        preventDefault: () => {},
+        dataTransfer: {
+          effectAllowed: '',
+          dropEffect: '',
+          setData: () => {},
+          getData: () => JSON.stringify({ moradorId: m2.id, origemSemanaId: sem2.semanaId })
+        }
+      } as any;
+
+      comp.aoIniciarArrasto(mockDragEvent, m2.id, sem2.semanaId);
+      expect(comp.arrastandoMorador()?.moradorId).toBe(m2.id);
+
+      comp.aoArrastarSobre(mockDragEvent, sem1.semanaId);
+      expect(comp.semanaHover()).toBe(sem1.semanaId);
+
+      comp.aoSoltar(mockDragEvent, sem1.semanaId);
+
+      // Carlos deve ter sido movido para a semana 1
+      const sem1Atual = service.escala().find(s => s.semanaId === sem1.semanaId);
+      expect(sem1Atual?.responsaveis.some(m => m.id === m2.id)).toBe(true);
+      expect(comp.arrastandoMorador()).toBeNull();
+      expect(comp.semanaHover()).toBeNull();
+    });
+
+    it('deve permitir escalar morador via menu dropdown e esvaziar semana', () => {
+      const service = TestBed.inject(CleanupService);
+      const m1 = service.adicionarMorador('Quezia Costa');
+      const m2 = service.adicionarMorador('Carlos Souza');
+
+      const fixture = TestBed.createComponent(EscalaRodizioComponent);
+      fixture.detectChanges();
+      const comp = fixture.componentInstance;
+
+      const sem1 = service.escala()[0];
+
+      // Alterna menu de escalar
+      comp.alternarMenuEscalar(sem1.semanaId);
+      expect(comp.menuEscalarAbertoPara()).toBe(sem1.semanaId);
+
+      // Escala Carlos na semana 1
+      comp.escalarMorador(sem1.semanaId, m2.id);
+      expect(comp.menuEscalarAbertoPara()).toBeNull();
+
+      const sem1Atual = service.escala().find(s => s.semanaId === sem1.semanaId);
+      expect(sem1Atual?.responsaveis.length).toBe(2);
+
+      // Esvazia semana
+      comp.limparSemana(sem1.semanaId);
+      const sem1Vazia = service.escala().find(s => s.semanaId === sem1.semanaId);
+      expect(sem1Vazia?.responsaveis.length).toBe(0);
+
+      // Remove morador da semana
+      service.adicionarMoradorNaSemana(sem1.semanaId, m1.id);
+      comp.removerMorador(sem1.semanaId, m1.id);
+      expect(service.escala()[0].responsaveis.length).toBe(0);
     });
   });
 });
