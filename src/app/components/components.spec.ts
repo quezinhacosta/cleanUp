@@ -282,5 +282,46 @@ describe('CleanUp Components Test Suite', () => {
       comp.removerMorador(sem1.semanaId, m1.id);
       expect(service.escala()[0].responsaveis.length).toBe(0);
     });
+
+    it('deve conectar o calendário mensal, permitindo navegar entre meses e visualizar células dos dias', () => {
+      const service = TestBed.inject(CleanupService);
+      service.adicionarMorador('Quezia Costa');
+      service.adicionarMorador('Carlos Souza');
+
+      const fixture = TestBed.createComponent(EscalaRodizioComponent);
+      fixture.detectChanges();
+      const comp = fixture.componentInstance;
+
+      expect(comp.isMesAtual()).toBe(true);
+      const mesAtual = service.mesVisualizacao().mes;
+      const anoAtual = service.mesVisualizacao().ano;
+
+      // Avança para o próximo mês
+      comp.avancarMes();
+      expect(comp.isMesAtual()).toBe(false);
+      expect(comp.semanasExibidas().length).toBeGreaterThanOrEqual(4);
+
+      // Volta para o mês atual
+      comp.irParaMesAtual();
+      expect(comp.isMesAtual()).toBe(true);
+      expect(service.mesVisualizacao().mes).toBe(mesAtual);
+      expect(service.mesVisualizacao().ano).toBe(anoAtual);
+
+      // Valida células do mini-calendário mensal
+      const celulas = comp.celulasCalendario();
+      expect(celulas.length).toBeGreaterThanOrEqual(28);
+      const celulaHoje = celulas.find(c => c.isHoje);
+      expect(celulaHoje).toBeDefined();
+
+      // Alterna exibição do calendário
+      expect(comp.exibirCalendarioMensal()).toBe(true);
+      comp.alternarVisualizacaoCalendario();
+      expect(comp.exibirCalendarioMensal()).toBe(false);
+
+      // Valida contagem de semanas do morador no mês
+      const m1 = service.moradores()[0];
+      const contagem = comp.contarSemanasDoMoradorNoMes(m1.id);
+      expect(contagem).toMatch(/[0-9]+ sem/);
+    });
   });
 });

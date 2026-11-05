@@ -31,6 +31,12 @@ export class CleanupService {
   // Indicador de status de sincronização com o Supabase
   readonly sincronizandoComNuvem = signal<boolean>(false);
 
+  // Mês selecionado para navegação e visualização da escala de rodízio
+  readonly mesVisualizacao = signal<{ ano: number; mes: number }>({
+    ano: new Date().getFullYear(),
+    mes: new Date().getMonth()
+  });
+
   // Controle de Modal de Gerenciamento de Membros
   readonly modalMembrosAberto = signal<boolean>(false);
 
@@ -466,6 +472,154 @@ export class CleanupService {
 
     const novaEscala = this.recomporEscalaComNovosMoradores(primeiraSemana, moradores);
     this.escala.set(novaEscala);
+    this.persistirEscalaNoSupabase();
+  }
+
+  // MÉTODOS DE CONTROLE DO CALENDÁRIO MENSAL DA ESCALA
+
+  mudarMesVisualizacao(ano: number, mes: number): void {
+    this.mesVisualizacao.set({ ano, mes });
+    this.obterSemanasDoMes(ano, mes);
+  }
+
+  avancarMes(): void {
+    const { ano, mes } = this.mesVisualizacao();
+    const proximoAno = mes === 11 ? ano + 1 : ano;
+    const proximoMes = mes === 11 ? 0 : mes + 1;
+    this.mudarMesVisualizacao(proximoAno, proximoMes);
+  }
+
+  voltarMes(): void {
+    const { ano, mes } = this.mesVisualizacao();
+    const anteriorAno = mes === 0 ? ano - 1 : ano;
+    const anteriorMes = mes === 0 ? 11 : mes - 1;
+    this.mudarMesVisualizacao(anteriorAno, anteriorMes);
+  }
+
+  irParaMesAtual(): void {
+    const agora = new Date();
+    this.mudarMesVisualizacao(agora.getFullYear(), agora.getMonth());
+  }
+
+  obterSemanasDoMes(ano: number, mes: number): EscalaSemana[] {
+    const inicioMes = new Date(ano, mes, 1, 0, 0, 0, 0);
+    const fimMes = new Date(ano, mes + 1, 0, 23, 59, 59, 999);
+
+    const existentes = this.escala().filter(s => {
+      const ini = new Date(s.dataInicio);
+      const fim = new Date(s.dataFim);
+      return (ini <= fimMes && fim >= inicioMes);
+    });
+
+    if (existentes.length > 0) {
+      return existentes.sort((a, b) => new Date(a.dataInicio).getTime() - new Date(b.dataInicio).getTime());
+    }
+
+    if (this.moradores().length > 0) {
+      const geradas = this.gerarSemanasParaMes(ano, mes);
+      this.escala.update(todas => [...todas, ...geradas]);
+      this.persistirEscalaNoSupabase();
+      return geradas;
+    }
+
+    return [];
+  }
+
+  gerarSemanasParaMes(ano: number, mes: number, moradoresLista?: Morador[]): EscalaSemana[] {
+    const moradores = moradoresLista || this.moradores();
+    const totalDias = new Date(ano, mes + 1, 0).getDate();
+    const agora = new Date();
+
+    const intervalos: Array<{ ini: number; fim: number }> = [
+      { ini: 1, fim: 7 },
+      { ini: 8, fim: 14 },
+      { ini: 15, fim: 21 },
+      { ini: 22, fim: 28 }
+    ];
+    if (totalDias > 28) {
+      intervalos.push({ ini: 29, fim: totalDias });
+    }
+
+    const novasSemanas: EscalaSemana[] = intervalos.map((inter, idx) => {
+      const dataInicio = new Date(ano, mes, inter.ini, 0, 0, 0, 0);
+      const dataFim = new Date(ano, mes, inter.fim, 23, 59, 59, 999);
+
+      let status: EscalaSemana['status'] = 'PENDENTE';
+      if (idx === 0 && ano === agora.getFullYear() && mes === agora.getMonth()) {
+        status = 'EM_ANDAMENTO';
+      } else if (agora > dataFim) {
+        status = 'CONCLUIDO';
+      } else if (agora >= dataInicio && agora <= dataFim) {
+        status = 'EM_ANDAMENTO';
+      }
+
+      const moradorResp = moradores.length > 0 ? moradores[idx % moradores.length] : null;
+
+      return {
+        semanaId: `sem-${ano}-${mes + 1}-${idx + 1}-${Date.now() + idx}`,
+        dataInicio,
+        dataFim,
+        responsaveis: moradorResp ? [moradorResp] : [],
+        responsavel: moradorResp,
+        status
+      };
+    });
+
+    return novasSemanas;
+  }
+
+  equilibrarMes(ano: number, mes: number): void {
+    const moradores = this.moradores();
+    if (moradores.length === 0) return;
+
+    const semanas = this.obterSemanasDoMes(ano, mes);
+    if (semanas.length === 0) return;
+
+    const atualizadas = semanas.map((sem, idx) => {
+      const m = moradores[idx % moradores.length];
+      return {
+        ...sem,
+        responsaveis: [m],
+        responsavel: m
+      };
+    });
+
+    const atualizadasMap = new Map(atualizadas.map(s => [s.semanaId, s]));
+
+    this.escala.update(todas =>
+      todas.map(s => atualizadasMap.get(s.semanaId) || s)
+    );
+
+    this.persistirEscalaNoSupabase();
+  }
+
+  adicionarSemanaNoMes(ano: number, mes: number): void {
+    const semanas = this.obterSemanasDoMes(ano, mes);
+    let dataInicio: Date;
+
+    if (semanas.length > 0) {
+      const ultima = semanas[semanas.length - 1];
+      dataInicio = new Date(ultima.dataFim);
+      dataInicio.setDate(dataInicio.getDate() + 1);
+      dataInicio.setHours(0, 0, 0, 0);
+    } else {
+      dataInicio = new Date(ano, mes, 1, 0, 0, 0, 0);
+    }
+
+    const dataFim = new Date(dataInicio);
+    dataFim.setDate(dataInicio.getDate() + 6);
+    dataFim.setHours(23, 59, 59, 999);
+
+    const novaSemana: EscalaSemana = {
+      semanaId: `sem-${ano}-${mes + 1}-${semanas.length + 1}-${Date.now()}`,
+      dataInicio,
+      dataFim,
+      responsaveis: [],
+      responsavel: null,
+      status: 'PENDENTE'
+    };
+
+    this.escala.update(todas => [...todas, novaSemana]);
     this.persistirEscalaNoSupabase();
   }
 
