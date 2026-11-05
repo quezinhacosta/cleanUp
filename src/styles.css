@@ -23,3 +23,13 @@
     transform: scale(1.15);
   }
 }
+
+/* Utilitário para rolagem horizontal suave no mobile sem barra de rolagem rústica */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
