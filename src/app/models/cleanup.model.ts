@@ -23,7 +23,8 @@ export interface EscalaSemana {
   semanaId: string;
   dataInicio: Date;
   dataFim: Date;
-  responsavel: Morador;
+  responsavel?: Morador | null; // Responsável primário (retrocompatibilidade)
+  responsaveis: Morador[];      // Lista de moradores escalados (pode ser 0, 1 ou múltiplos)
   status: 'PENDENTE' | 'EM_ANDAMENTO' | 'CONCLUIDO';
 }
 
