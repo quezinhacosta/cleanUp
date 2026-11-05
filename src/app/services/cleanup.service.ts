@@ -150,7 +150,6 @@ export class CleanupService {
     if (escalaAtual.length === 0) {
       this.escala.set(this.gerarEscalaParaMoradores(novosMoradores));
     } else {
-      // Mantém a semana atual em andamento e reorganiza as próximas semanas com o novo membro
       const semanaAtual = escalaAtual[0];
       const escalaReorganizada = this.recomporEscalaComNovosMoradores(semanaAtual, novosMoradores);
       this.escala.set(escalaReorganizada);
@@ -163,34 +162,26 @@ export class CleanupService {
     const novosMoradores = this.moradores().filter(m => m.id !== id);
     this.moradores.set(novosMoradores);
 
+    // Remove das semanas da escala
+    this.escala.update(semanas =>
+      semanas.map(sem => {
+        const novosResponsaveis = (sem.responsaveis || []).filter(m => m.id !== id);
+        return {
+          ...sem,
+          responsaveis: novosResponsaveis,
+          responsavel: novosResponsaveis.length > 0 ? novosResponsaveis[0] : null
+        };
+      })
+    );
+
     if (novosMoradores.length === 0) {
       this.moradorAtivo.set(null);
       this.escala.set([]);
       return;
     }
 
-    // Se o morador removido era o ativo, muda para o primeiro disponível
     if (this.moradorAtivo()?.id === id) {
       this.moradorAtivo.set(novosMoradores[0]);
-    }
-
-    // Atualiza a escala removendo o morador e readequando os ciclos
-    const escalaAtual = this.escala();
-    if (escalaAtual.length > 0) {
-      let semanaAtual = escalaAtual[0];
-      // Se a semana atual pertencia ao morador removido, passa imediatamente para o próximo
-      if (semanaAtual.responsavel.id === id) {
-        semanaAtual = {
-          ...semanaAtual,
-          responsavel: novosMoradores[0],
-          status: 'EM_ANDAMENTO'
-        };
-        this.moradorAtivo.set(novosMoradores[0]);
-      }
-      const escalaReorganizada = this.recomporEscalaComNovosMoradores(semanaAtual, novosMoradores);
-      this.escala.set(escalaReorganizada);
-    } else {
-      this.escala.set(this.gerarEscalaParaMoradores(novosMoradores));
     }
   }
 
@@ -216,11 +207,14 @@ export class CleanupService {
       dataFim.setDate(dataInicio.getDate() + 6);
       dataFim.setHours(23, 59, 59, 999);
 
+      const moradorResp = moradores[i % moradores.length];
+
       escala.push({
-        semanaId: `sem-${i + 1}-${moradores[i % moradores.length].id}-${Date.now()}`,
+        semanaId: `sem-${i + 1}-${moradorResp.id}-${Date.now()}`,
         dataInicio,
         dataFim,
-        responsavel: moradores[i % moradores.length],
+        responsaveis: [moradorResp],
+        responsavel: moradorResp,
         status: i === 0 ? 'EM_ANDAMENTO' : 'PENDENTE'
       });
     }
@@ -234,8 +228,8 @@ export class CleanupService {
     const escala: EscalaSemana[] = [{ ...semanaAtual }];
     const totalSemanas = Math.max(4, moradores.length);
 
-    // Encontra a posição do morador atual na lista atualizada
-    const idxAtual = moradores.findIndex(m => m.id === semanaAtual.responsavel.id);
+    const responsavelAtual = (semanaAtual.responsaveis && semanaAtual.responsaveis[0]) || semanaAtual.responsavel;
+    const idxAtual = responsavelAtual ? moradores.findIndex(m => m.id === responsavelAtual.id) : -1;
     const inicioProx = idxAtual >= 0 ? (idxAtual + 1) : 0;
 
     let baseFim = new Date(semanaAtual.dataFim);
@@ -255,6 +249,7 @@ export class CleanupService {
         semanaId: `sem-${i + 1}-${responsavel.id}-${Date.now() + i}`,
         dataInicio: proximaDataInicio,
         dataFim: proximaDataFim,
+        responsaveis: [responsavel],
         responsavel,
         status: 'PENDENTE'
       });
@@ -263,6 +258,82 @@ export class CleanupService {
     }
 
     return escala;
+  }
+
+  // MÉTODOS DE ARRASTAR / ORGANIZAR MORADORES ENTRE SEMANAS
+
+  /**
+   * Adiciona um morador em uma semana (permite mais de um morador na mesma semana)
+   */
+  adicionarMoradorNaSemana(semanaId: string, moradorId: string): void {
+    const morador = this.moradores().find(m => m.id === moradorId);
+    if (!morador) return;
+
+    this.escala.update(semanas =>
+      semanas.map(sem => {
+        if (sem.semanaId !== semanaId) return sem;
+        const jaEsta = (sem.responsaveis || []).some(m => m.id === moradorId);
+        if (jaEsta) return sem;
+        const novos = [...(sem.responsaveis || []), morador];
+        return {
+          ...sem,
+          responsaveis: novos,
+          responsavel: novos[0] || null
+        };
+      })
+    );
+  }
+
+  /**
+   * Remove um morador de uma semana (a semana pode ficar com 0 moradores)
+   */
+  removerMoradorDaSemana(semanaId: string, moradorId: string): void {
+    this.escala.update(semanas =>
+      semanas.map(sem => {
+        if (sem.semanaId !== semanaId) return sem;
+        const novos = (sem.responsaveis || []).filter(m => m.id !== moradorId);
+        return {
+          ...sem,
+          responsaveis: novos,
+          responsavel: novos.length > 0 ? novos[0] : null
+        };
+      })
+    );
+  }
+
+  /**
+   * Move ou adiciona morador entre semanas via Drag-and-Drop
+   */
+  moverMoradorEntreSemanas(moradorId: string, origemSemanaId: string | null, destinoSemanaId: string): void {
+    const morador = this.moradores().find(m => m.id === moradorId);
+    if (!morador) return;
+
+    this.escala.update(semanas =>
+      semanas.map(sem => {
+        // Se foi arrastado de outra semana específica, remove da origem
+        if (origemSemanaId && sem.semanaId === origemSemanaId && origemSemanaId !== destinoSemanaId) {
+          const novosOrigem = (sem.responsaveis || []).filter(m => m.id !== moradorId);
+          return {
+            ...sem,
+            responsaveis: novosOrigem,
+            responsavel: novosOrigem.length > 0 ? novosOrigem[0] : null
+          };
+        }
+
+        // Adiciona na semana de destino
+        if (sem.semanaId === destinoSemanaId) {
+          const jaTem = (sem.responsaveis || []).some(m => m.id === moradorId);
+          const novosDestino = jaTem ? sem.responsaveis : [...(sem.responsaveis || []), morador];
+          return {
+            ...sem,
+            responsaveis: novosDestino,
+            responsavel: novosDestino.length > 0 ? novosDestino[0] : null
+          };
+        }
+
+        return sem;
+      })
+    );
   }
 
   // AÇÕES DO CHECKLIST E CICLO
@@ -279,7 +350,6 @@ export class CleanupService {
     );
 
     if (novoEstado && morador) {
-      // Registra a limpeza no feed com a hora exata
       const novoRegistro: RegistroLimpeza = {
         id: `reg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         moradorId: morador.id,
@@ -332,8 +402,8 @@ export class CleanupService {
     proximaDataFim.setDate(proximaDataInicio.getDate() + 6);
     proximaDataFim.setHours(23, 59, 59, 999);
 
-    // Encontra quem era o responsável da última semana e pega estritamente o próximo da lista de moradores
-    const ultimoMoradorIndex = moradores.findIndex(m => m.id === ultimaSemana.responsavel.id);
+    const ultimoMorador = (ultimaSemana.responsaveis && ultimaSemana.responsaveis[0]) || ultimaSemana.responsavel;
+    const ultimoMoradorIndex = ultimoMorador ? moradores.findIndex(m => m.id === ultimoMorador.id) : -1;
     const proxMoradorIndex = ultimoMoradorIndex >= 0 ? (ultimoMoradorIndex + 1) % moradores.length : 0;
     const proxMorador = moradores[proxMoradorIndex];
 
@@ -341,16 +411,17 @@ export class CleanupService {
       semanaId: `sem-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       dataInicio: proximaDataInicio,
       dataFim: proximaDataFim,
-      responsavel: proxMorador,
+      responsaveis: proxMorador ? [proxMorador] : [],
+      responsavel: proxMorador || null,
       status: 'PENDENTE'
     };
 
-    // Remove a primeira e insere a nova semana no final da fila de rodízio
     const novaLista = [...lista.slice(1), novaSemana];
     if (novaLista.length > 0) {
       novaLista[0] = { ...novaLista[0], status: 'EM_ANDAMENTO' };
-      // O morador ativo passa automaticamente a ser o responsável da nova semana
-      this.setMoradorAtivo(novaLista[0].responsavel);
+      if (novaLista[0].responsaveis && novaLista[0].responsaveis.length > 0) {
+        this.setMoradorAtivo(novaLista[0].responsaveis[0]);
+      }
     }
 
     this.escala.set(novaLista);
@@ -416,11 +487,18 @@ export class CleanupService {
       const data = localStorage.getItem(STORAGE_KEY_ESCALA);
       if (!data) return [];
       const parsed = JSON.parse(data);
-      return parsed.map((item: any) => ({
-        ...item,
-        dataInicio: new Date(item.dataInicio),
-        dataFim: new Date(item.dataFim)
-      }));
+      return parsed.map((item: any) => {
+        const responsaveis: Morador[] = item.responsaveis
+          ? item.responsaveis
+          : (item.responsavel ? [item.responsavel] : []);
+        return {
+          ...item,
+          dataInicio: new Date(item.dataInicio),
+          dataFim: new Date(item.dataFim),
+          responsaveis,
+          responsavel: responsaveis.length > 0 ? responsaveis[0] : null
+        };
+      });
     } catch {
       return [];
     }

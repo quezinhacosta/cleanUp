@@ -1,8 +1,6 @@
 # CleanUp
 
-Aplicacao web para gerenciar e monitorar a escala de limpeza de apartamentos compartilhados. O objetivo do CleanUp e garantir transparencia total e eliminar o desfalque nas tarefas: registrar quem realizou cada tarefa, em qual data e no horario exato com precisao de segundos.
-
-Desenvolvido por Quezia Costa.
+Aplicação web moderna para gerenciar e monitorar a escala de limpeza . O objetivo primordial do **CleanUp** é garantir **transparência total** e eliminar o desfalque nas tarefas: quem fez o que, qual tarefa foi realizada, em qual data e no horário exato com precisão de segundos.
 
 ---
 
