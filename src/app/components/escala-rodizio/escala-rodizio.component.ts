@@ -106,18 +106,19 @@ import { EscalaSemana, Morador } from '../../models/cleanup.model';
       }
 
       <!-- Grid de Semanas da Escala (Drop Zones) -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-5">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-5">
         @for (semana of service.escala(); track semana.semanaId; let i = $index) {
           <div
             (dragover)="aoArrastarSobre($event, semana.semanaId)"
             (dragenter)="aoEntrarNaZona($event, semana.semanaId)"
             (dragleave)="aoSairDaZona($event, semana.semanaId)"
             (drop)="aoSoltar($event, semana.semanaId)"
-            class="rounded-xl border p-4 transition-all duration-150 flex flex-col justify-between relative group"
+            class="rounded-2xl border p-4 sm:p-5 transition-all duration-200 flex flex-col justify-between relative group min-h-[230px]"
             [class.border-blue-500]="semanaHover() === semana.semanaId"
-            [class.bg-blue-50/60]="semanaHover() === semana.semanaId"
+            [class.bg-blue-50/70]="semanaHover() === semana.semanaId"
             [class.ring-2]="semanaHover() === semana.semanaId"
-            [class.ring-blue-300]="semanaHover() === semana.semanaId"
+            [class.ring-blue-400]="semanaHover() === semana.semanaId"
+            [class.shadow-md]="semanaHover() === semana.semanaId"
             [class.border-blue-300]="semanaHover() !== semana.semanaId && i === 0"
             [class.bg-blue-50/20]="semanaHover() !== semana.semanaId && i === 0"
             [class.shadow-xs]="i === 0"

@@ -38,20 +38,15 @@
       <app-seletor-perfil></app-seletor-perfil>
     </section>
 
-    <!-- Grid: Checklist (Esquerda / Principal) + Escala (Direita ou Abaixo) -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-      
-      <!-- 2. Checklist de Tarefas da Semana -->
-      <section class="lg:col-span-7 xl:col-span-8 space-y-6" aria-labelledby="checklist-title">
-        <app-checklist-tarefas></app-checklist-tarefas>
-      </section>
+    <!-- 2. Checklist de Tarefas da Semana -->
+    <section aria-labelledby="checklist-title">
+      <app-checklist-tarefas></app-checklist-tarefas>
+    </section>
 
-      <!-- 4. Visão da Escala de Rodízio (Lateral no Desktop) -->
-      <section class="lg:col-span-5 xl:col-span-4" aria-labelledby="escala-title">
-        <app-escala-rodizio></app-escala-rodizio>
-      </section>
-
-    </div>
+    <!-- 3. Visão da Escala de Rodízio (Ocupando a seção inteira abaixo do Checklist) -->
+    <section aria-labelledby="escala-title">
+      <app-escala-rodizio></app-escala-rodizio>
+    </section>
 
     <!-- 3. Feed / Histórico de Atividades (Log de Transparência) -->
     <section aria-labelledby="feed-historico-title">
