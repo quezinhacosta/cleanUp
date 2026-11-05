@@ -7,6 +7,7 @@ const STORAGE_KEY_TAREFAS = 'cleanup_tarefas';
 const STORAGE_KEY_HISTORICO = 'cleanup_historico';
 const STORAGE_KEY_ESCALA = 'cleanup_escala';
 const STORAGE_KEY_MORADOR_ATIVO = 'cleanup_morador_ativo';
+const STORAGE_KEY_ESCALA_DIAS = 'cleanup_escala_dias';
 
 @Injectable({
   providedIn: 'root'
@@ -27,6 +28,12 @@ export class CleanupService {
   readonly tarefas = signal<Tarefa[]>(this.carregarTarefas());
   readonly historico = signal<RegistroLimpeza[]>(this.carregarHistorico());
   readonly moradorAtivo = signal<Morador | null>(this.carregarMoradorAtivo());
+
+  // Mapa de atribuições específicas por dia (YYYY-MM-DD -> id dos moradores)
+  readonly escalaDias = signal<Record<string, string[]>>(this.carregarEscalaDias());
+
+  // Data atual reativa para detecção automática da virada de dia/mês
+  readonly dataHoje = signal<Date>(new Date());
 
   // Indicador de status de sincronização com o Supabase
   readonly sincronizandoComNuvem = signal<boolean>(false);
@@ -100,6 +107,7 @@ export class CleanupService {
       if (typeof window !== 'undefined' && window.localStorage) {
         localStorage.setItem(STORAGE_KEY_MORADORES, JSON.stringify(this.moradores()));
         localStorage.setItem(STORAGE_KEY_ESCALA, JSON.stringify(this.escala()));
+        localStorage.setItem(STORAGE_KEY_ESCALA_DIAS, JSON.stringify(this.escalaDias()));
         localStorage.setItem(STORAGE_KEY_TAREFAS, JSON.stringify(this.tarefas()));
         localStorage.setItem(STORAGE_KEY_HISTORICO, JSON.stringify(this.historico()));
         const ativo = this.moradorAtivo();
@@ -110,6 +118,9 @@ export class CleanupService {
         }
       }
     });
+
+    // Inicia o monitoramento ativo de virada de dia e de mês
+    this.iniciarMonitoramentoData();
 
     // Se a primeira semana já tem tarefas 100%, sincroniza status para CONCLUIDO
     effect(() => {
@@ -242,6 +253,16 @@ export class CleanupService {
     }
 
     this.escala.set(semanasAtualizadas);
+
+    // Remove o morador de todas as atribuições específicas de dias
+    this.escalaDias.update(mapa => {
+      const novo: Record<string, string[]> = {};
+      for (const [dataIso, ids] of Object.entries(mapa)) {
+        novo[dataIso] = ids.filter(mId => mId !== id);
+      }
+      return novo;
+    });
+
     this.excluirMoradorDoSupabase(id);
     this.persistirEscalaNoSupabase();
   }
@@ -511,7 +532,114 @@ export class CleanupService {
 
   irParaMesAtual(): void {
     const agora = new Date();
+    this.dataHoje.set(agora);
     this.mudarMesVisualizacao(agora.getFullYear(), agora.getMonth());
+  }
+
+  formatarDataIso(data: Date): string {
+    const ano = data.getFullYear();
+    const mes = (data.getMonth() + 1).toString().padStart(2, '0');
+    const dia = data.getDate().toString().padStart(2, '0');
+    return `${ano}-${mes}-${dia}`;
+  }
+
+  obterMoradoresDoDia(data: Date | string): Morador[] {
+    const dataIso = typeof data === 'string' ? data : this.formatarDataIso(data);
+    const dias = this.escalaDias();
+    const todosMoradores = this.moradores();
+
+    // 1. Se tem atribuição específica salva para este dia (inclusive se foi esvaziado explicitamente com [])
+    if (Object.prototype.hasOwnProperty.call(dias, dataIso)) {
+      const ids = dias[dataIso] || [];
+      return ids
+        .map(id => todosMoradores.find(m => m.id === id))
+        .filter((m): m is Morador => !!m);
+    }
+
+    // 2. Fallback: verifica se o dia se enquadra em uma semana cadastrada na escala
+    const partes = dataIso.split('-');
+    const targetDate = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]), 12, 0, 0, 0);
+
+    const semanas = this.escala();
+    const sem = semanas.find(s => {
+      const ini = new Date(s.dataInicio);
+      ini.setHours(0, 0, 0, 0);
+      const fim = new Date(s.dataFim);
+      fim.setHours(23, 59, 59, 999);
+      return targetDate >= ini && targetDate <= fim;
+    });
+
+    if (sem && sem.responsaveis && sem.responsaveis.length > 0) {
+      return sem.responsaveis;
+    }
+
+    // 3. Revezamento contínuo cíclico na virada de meses caso caia além das semanas iniciais
+    if (todosMoradores.length > 0 && semanas.length > 0) {
+      const baseIni = new Date(semanas[0].dataInicio);
+      baseIni.setHours(12, 0, 0, 0);
+      const diffDias = Math.floor((targetDate.getTime() - baseIni.getTime()) / (1000 * 60 * 60 * 24));
+      const diffSemanas = Math.floor(diffDias / 7);
+      const cicloIndex = ((diffSemanas % todosMoradores.length) + todosMoradores.length) % todosMoradores.length;
+      const moradorCiclo = todosMoradores[cicloIndex];
+      return moradorCiclo ? [moradorCiclo] : [];
+    }
+
+    return [];
+  }
+
+  atribuirMoradorAoDia(dataIso: string, moradorId: string): void {
+    const atuais = this.obterMoradoresDoDia(dataIso);
+    if (atuais.some(m => m.id === moradorId)) return;
+
+    const novosIds = [...atuais.map(m => m.id), moradorId];
+    this.escalaDias.update(mapa => ({
+      ...mapa,
+      [dataIso]: novosIds
+    }));
+
+    // Se o dia atribuído for hoje, garante que o morador ativo fique alinhado
+    const hojeIso = this.formatarDataIso(this.dataHoje());
+    if (dataIso === hojeIso) {
+      const m = this.moradores().find(item => item.id === moradorId);
+      if (m && !this.moradorAtivo()) {
+        this.setMoradorAtivo(m);
+      }
+    }
+  }
+
+  removerMoradorDoDia(dataIso: string, moradorId: string): void {
+    const atuais = this.obterMoradoresDoDia(dataIso);
+    const novosIds = atuais.filter(m => m.id !== moradorId).map(m => m.id);
+    this.escalaDias.update(mapa => ({
+      ...mapa,
+      [dataIso]: novosIds
+    }));
+  }
+
+  moverMoradorEntreDias(moradorId: string, origemDataIso: string | null, destinoDataIso: string): void {
+    if (origemDataIso === destinoDataIso) return;
+
+    if (origemDataIso) {
+      this.removerMoradorDoDia(origemDataIso, moradorId);
+    }
+    this.atribuirMoradorAoDia(destinoDataIso, moradorId);
+  }
+
+  limparDia(dataIso: string): void {
+    this.escalaDias.update(mapa => ({
+      ...mapa,
+      [dataIso]: []
+    }));
+  }
+
+  limparMes(ano: number, mes: number): void {
+    const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+    const mapaAtual = { ...this.escalaDias() };
+    for (let d = 1; d <= diasNoMes; d++) {
+      const dataIso = `${ano}-${(mes + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+      mapaAtual[dataIso] = [];
+    }
+    this.escalaDias.set(mapaAtual);
   }
 
   obterSemanasDoMes(ano: number, mes: number): EscalaSemana[] {
@@ -524,8 +652,24 @@ export class CleanupService {
     return this.gerarEscalaParaMoradores(moradores);
   }
 
-  equilibrarMes(ano: number, mes: number): void {
+  equilibrarMes(ano?: number, mes?: number): void {
+    const visualizacao = this.mesVisualizacao();
+    const targetAno = ano !== undefined ? ano : visualizacao.ano;
+    const targetMes = mes !== undefined ? mes : visualizacao.mes;
+
     this.redefinirEscala();
+
+    // Remove eventuais overrides manuais do mês para voltar ao equilíbrio do rodízio regular
+    const prefixoMes = `${targetAno}-${(targetMes + 1).toString().padStart(2, '0')}`;
+    this.escalaDias.update(dias => {
+      const novo: Record<string, string[]> = {};
+      for (const [k, v] of Object.entries(dias)) {
+        if (!k.startsWith(prefixoMes)) {
+          novo[k] = v;
+        }
+      }
+      return novo;
+    });
   }
 
   adicionarSemanaNoMes(ano: number, mes: number): void {
@@ -1025,6 +1169,60 @@ export class CleanupService {
       return moradores.length > 0 ? moradores[0] : null;
     } catch {
       return null;
+    }
+  }
+
+  private carregarEscalaDias(): Record<string, string[]> {
+    try {
+      const data = localStorage.getItem(STORAGE_KEY_ESCALA_DIAS);
+      return data ? JSON.parse(data) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  // Monitora continuamente a virada de dia e de mês
+  private iniciarMonitoramentoData(): void {
+    if (typeof window === 'undefined') return;
+
+    const verificarVirada = () => {
+      const agora = new Date();
+      const anterior = this.dataHoje();
+
+      const virouDia = agora.getDate() !== anterior.getDate();
+      const virouMes = agora.getMonth() !== anterior.getMonth() || agora.getFullYear() !== anterior.getFullYear();
+
+      if (virouDia || virouMes) {
+        const estavaNoMesAtual =
+          this.mesVisualizacao().ano === anterior.getFullYear() &&
+          this.mesVisualizacao().mes === anterior.getMonth();
+
+        this.dataHoje.set(agora);
+
+        // Se o usuário estava visualizando o mês atual quando virou o mês, avança automaticamente
+        if (virouMes && estavaNoMesAtual) {
+          this.mesVisualizacao.set({
+            ano: agora.getFullYear(),
+            mes: agora.getMonth()
+          });
+        }
+      }
+    };
+
+    // Verificação periódica a cada 30 segundos
+    try {
+      setInterval(verificarVirada, 30000);
+    } catch {}
+
+    // Verificação imediata quando o usuário volta à aba do navegador
+    if (typeof document !== 'undefined') {
+      try {
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') {
+            verificarVirada();
+          }
+        });
+      } catch {}
     }
   }
 }

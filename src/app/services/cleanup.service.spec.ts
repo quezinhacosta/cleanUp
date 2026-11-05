@@ -179,4 +179,51 @@ describe('CleanupService', () => {
     expect(service.historicoFiltrado().length).toBe(1);
     expect(service.historicoFiltrado()[0].tarefaNome).toBe(service.tarefas()[1].titulo);
   });
+
+  it('deve gerenciar escala por dia específico: atribuir, mover e remover moradores de dias', () => {
+    const m1 = service.adicionarMorador('Quezia Costa');
+    const m2 = service.adicionarMorador('Carlos Souza');
+
+    const dia1 = '2026-11-10';
+    const dia2 = '2026-11-15';
+
+    // Atribui Carlos especificamente ao dia 10
+    service.atribuirMoradorAoDia(dia1, m2.id);
+    let moradoresDia1 = service.obterMoradoresDoDia(dia1);
+    expect(moradoresDia1.some(m => m.id === m2.id)).toBe(true);
+
+    // Move Carlos do dia 10 para o dia 15
+    service.moverMoradorEntreDias(m2.id, dia1, dia2);
+    moradoresDia1 = service.obterMoradoresDoDia(dia1);
+    const moradoresDia2 = service.obterMoradoresDoDia(dia2);
+    expect(moradoresDia1.some(m => m.id === m2.id)).toBe(false);
+    expect(moradoresDia2.some(m => m.id === m2.id)).toBe(true);
+
+    // Remove do dia 15
+    service.removerMoradorDoDia(dia2, m2.id);
+    expect(service.obterMoradoresDoDia(dia2).some(m => m.id === m2.id)).toBe(false);
+
+    // Limpar dia
+    service.atribuirMoradorAoDia(dia1, m1.id);
+    service.limparDia(dia1);
+    expect(service.obterMoradoresDoDia(dia1).length).toBe(0);
+  });
+
+  it('deve mudar de mês corretamente na virada e transitar limites de ano (Dezembro <-> Janeiro)', () => {
+    // Define mês em Dezembro de 2026
+    service.mudarMesVisualizacao(2026, 11);
+    expect(service.mesVisualizacao()).toEqual({ ano: 2026, mes: 11 });
+
+    // Avança mês -> deve ir para Janeiro de 2027
+    service.avancarMes();
+    expect(service.mesVisualizacao()).toEqual({ ano: 2027, mes: 0 });
+
+    // Volta mês -> deve retornar para Dezembro de 2026
+    service.voltarMes();
+    expect(service.mesVisualizacao()).toEqual({ ano: 2026, mes: 11 });
+
+    // Volta mais um mês -> deve ir para Novembro de 2026
+    service.voltarMes();
+    expect(service.mesVisualizacao()).toEqual({ ano: 2026, mes: 10 });
+  });
 });

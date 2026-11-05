@@ -323,5 +323,52 @@ describe('CleanUp Components Test Suite', () => {
       const contagem = comp.contarSemanasDoMoradorNoMes(m1.id);
       expect(contagem).toMatch(/[0-9]+ sem/);
     });
+
+    it('deve permitir arrastar morador diretamente para um dia específico e usar menu do dia', () => {
+      const service = TestBed.inject(CleanupService);
+      const m1 = service.adicionarMorador('Quezia Costa');
+      const m2 = service.adicionarMorador('Carlos Souza');
+
+      const fixture = TestBed.createComponent(EscalaRodizioComponent);
+      fixture.detectChanges();
+      const comp = fixture.componentInstance;
+
+      const dataAlvo = '2026-11-20';
+
+      // 1. Escala Carlos via menu rápido do dia
+      comp.alternarMenuDia(dataAlvo);
+      expect(comp.menuDiaAbertoPara()).toBe(dataAlvo);
+      comp.escalarMoradorNoDia(dataAlvo, m2.id);
+      expect(comp.menuDiaAbertoPara()).toBeNull();
+
+      expect(service.obterMoradoresDoDia(dataAlvo).some(m => m.id === m2.id)).toBe(true);
+
+      // 2. Arrastar Carlos do dia 20 para o dia 25
+      const dataDestino = '2026-11-25';
+      const mockDragEvent = {
+        preventDefault: () => {},
+        dataTransfer: {
+          effectAllowed: '',
+          dropEffect: '',
+          setData: () => {},
+          getData: () => JSON.stringify({ moradorId: m2.id, origemDataIso: dataAlvo })
+        }
+      } as any;
+
+      comp.aoIniciarArrastoDia(mockDragEvent, m2.id, dataAlvo);
+      expect(comp.arrastandoMorador()?.moradorId).toBe(m2.id);
+      expect(comp.arrastandoMorador()?.origemDataIso).toBe(dataAlvo);
+
+      comp.aoArrastarSobreDia(mockDragEvent, dataDestino);
+      expect(comp.diaHover()).toBe(dataDestino);
+
+      comp.aoSoltarNoDia(mockDragEvent, dataDestino);
+      expect(service.obterMoradoresDoDia(dataDestino).some(m => m.id === m2.id)).toBe(true);
+      expect(service.obterMoradoresDoDia(dataAlvo).some(m => m.id === m2.id)).toBe(false);
+
+      // 3. Remove morador do dia
+      comp.removerMoradorDoDia(dataDestino, m2.id);
+      expect(service.obterMoradoresDoDia(dataDestino).some(m => m.id === m2.id)).toBe(false);
+    });
   });
 });
