@@ -249,19 +249,24 @@ export class ChecklistTarefasComponent {
     const ativo = this.service.moradorAtivo();
 
     if (seraConcluida && !ativo) {
-      this.service.abrirModalMembros();
-      this.ultimoAviso.set('Por favor, cadastre ao menos um morador para registrar a limpeza.');
-      setTimeout(() => {
-        if (this.ultimoAviso()) this.ultimoAviso.set(null);
-      }, 4000);
-      return;
+      if (this.service.moradores().length > 0) {
+        this.service.setMoradorAtivo(this.service.moradores()[0]);
+      } else {
+        this.service.abrirModalMembros();
+        this.ultimoAviso.set('Por favor, cadastre ao menos um morador para registrar a limpeza.');
+        setTimeout(() => {
+          if (this.ultimoAviso()) this.ultimoAviso.set(null);
+        }, 4000);
+        return;
+      }
     }
 
     this.service.alternarTarefa(id);
 
-    if (seraConcluida && ativo) {
+    const moradorQueAssinou = this.service.moradorAtivo();
+    if (seraConcluida && moradorQueAssinou) {
       const horaStr = new Date().toLocaleTimeString('pt-BR');
-      this.ultimoAviso.set(`"${tarefa.titulo}" registrada por ${ativo.nome} às ${horaStr}!`);
+      this.ultimoAviso.set(`"${tarefa.titulo}" registrada por ${moradorQueAssinou.nome} às ${horaStr}!`);
       setTimeout(() => {
         if (this.ultimoAviso()) this.ultimoAviso.set(null);
       }, 4000);

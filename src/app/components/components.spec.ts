@@ -299,7 +299,7 @@ describe('CleanUp Components Test Suite', () => {
       // Avança para o próximo mês
       comp.avancarMes();
       expect(comp.isMesAtual()).toBe(false);
-      expect(comp.semanasExibidas().length).toBeGreaterThanOrEqual(4);
+      expect(comp.semanasExibidas().length).toBe(2);
 
       // Volta para o mês atual
       comp.irParaMesAtual();

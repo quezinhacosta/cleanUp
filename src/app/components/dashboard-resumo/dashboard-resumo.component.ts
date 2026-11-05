@@ -102,7 +102,7 @@ import { EscalaSemana } from '../../models/cleanup.model';
                 <svg class="w-4 h-4 mr-1 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
-                <span class="font-medium text-slate-700">Semana 1</span><span class="mx-1.5 text-slate-300">&bull;</span><span>Plantão em vigor</span>
+                <span class="font-medium text-slate-700">Semana {{ getNumeroSemanaAtual() }}</span><span class="mx-1.5 text-slate-300">&bull;</span><span>Plantão em vigor</span>
               </p>
             </div>
           </div>
@@ -216,6 +216,14 @@ import { EscalaSemana } from '../../models/cleanup.model';
 })
 export class DashboardResumoComponent {
   service = inject(CleanupService);
+
+  getNumeroSemanaAtual(): number {
+    const lista = this.service.escala();
+    const atual = this.service.semanaAtual();
+    if (!atual) return 1;
+    const idx = lista.findIndex(s => s.semanaId === atual.semanaId);
+    return idx >= 0 ? idx + 1 : 1;
+  }
 
   formatarNomesResponsaveis(semana: EscalaSemana): string {
     const lista = semana.responsaveis || (semana.responsavel ? [semana.responsavel] : []);

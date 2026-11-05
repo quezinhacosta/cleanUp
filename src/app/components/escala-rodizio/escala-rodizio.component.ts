@@ -521,11 +521,10 @@ export class EscalaRodizioComponent {
   menuEscalarAbertoPara = signal<string | null>(null);
 
   /**
-   * Semanas pertencentes ao mês atualmente selecionado
+   * Semanas do rodízio ativo (cada semana direcionada a cada morador)
    */
   semanasExibidas = computed<EscalaSemana[]>(() => {
-    const { ano, mes } = this.service.mesVisualizacao();
-    return this.service.obterSemanasDoMes(ano, mes);
+    return this.service.escala();
   });
 
   /**
@@ -570,20 +569,36 @@ export class EscalaRodizioComponent {
       const dataDia = new Date(ano, mes, dia, 12, 0, 0, 0);
       const isHoje = hojeAno === ano && hojeMes === mes && hojeDia === dia;
 
-      // Localiza a semana do mês que engloba esse dia
+      // Localiza a semana exata que engloba esse dia
       const sem = semanas.find(s => {
         const ini = new Date(s.dataInicio);
         const fim = new Date(s.dataFim);
         return dataDia >= ini && dataDia <= fim;
       });
 
+      let semanaIdDoDia: string | null = sem ? sem.semanaId : null;
+      let moradoresDoDia: Morador[] = sem ? (sem.responsaveis || []) : [];
+
+      // Se a data cair fora dos limites das semanas gravadas, mapeia de forma cíclica pelo rodízio
+      if (!sem && semanas.length > 0) {
+        const baseIni = new Date(semanas[0].dataInicio);
+        const diffDias = Math.floor((dataDia.getTime() - baseIni.getTime()) / (1000 * 60 * 60 * 24));
+        const diffSemanas = Math.floor(diffDias / 7);
+        const cicloIndex = ((diffSemanas % semanas.length) + semanas.length) % semanas.length;
+        const semCiclo = semanas[cicloIndex];
+        if (semCiclo) {
+          semanaIdDoDia = semCiclo.semanaId;
+          moradoresDoDia = semCiclo.responsaveis || [];
+        }
+      }
+
       celulas.push({
         id: `atual-${dia}`,
         dia,
         doMesAtual: true,
         isHoje,
-        semanaId: sem ? sem.semanaId : null,
-        moradores: sem ? (sem.responsaveis || []) : []
+        semanaId: semanaIdDoDia,
+        moradores: moradoresDoDia
       });
     }
 

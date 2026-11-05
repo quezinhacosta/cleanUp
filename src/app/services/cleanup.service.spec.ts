@@ -36,11 +36,12 @@ describe('CleanupService', () => {
     const m1 = service.adicionarMorador('Quezia Costa');
     expect(service.moradores().length).toBe(1);
     expect(service.moradorAtivo()?.nome).toBe('Quezia Costa');
-    expect(service.escala().length).toBeGreaterThanOrEqual(4);
+    expect(service.escala().length).toBe(1);
     expect(service.semanaAtual()?.responsaveis[0]?.nome).toBe('Quezia Costa');
 
     const m2 = service.adicionarMorador('Carlos Souza');
     expect(service.moradores().length).toBe(2);
+    expect(service.escala().length).toBe(2);
     // Escala deve alternar entre Quezia e Carlos
     expect(service.escala()[0].responsaveis[0]?.nome).toBe('Quezia Costa');
     expect(service.escala()[1].responsaveis[0]?.nome).toBe('Carlos Souza');

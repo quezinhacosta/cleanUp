@@ -58,21 +58,30 @@ import { Morador } from '../../models/cleanup.model';
             </button>
 
             <!-- Seletor do Morador Ativo com Toggle de Clique -->
-            @if (service.moradorAtivo(); as ativo) {
+            @if (service.moradores().length > 0) {
               <div class="relative">
                 <button
                   type="button"
                   (click)="alternarMenuPerfis()"
                   class="flex items-center space-x-1.5 sm:space-x-2 bg-slate-100 hover:bg-slate-200/80 active:bg-slate-200 transition-colors py-1.5 px-2.5 sm:px-3 rounded-full border border-slate-200 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 >
-                  <img
-                    [src]="ativo.avatarUrl || 'https://ui-avatars.com/api/?name=' + ativo.nome"
-                    [alt]="ativo.nome"
-                    class="w-6 h-6 rounded-full object-cover border border-white shadow-xs shrink-0"
-                  />
-                  <span class="text-xs font-bold text-slate-800 max-w-[80px] xs:max-w-[100px] sm:max-w-none truncate">
-                    {{ ativo.nome }}
-                  </span>
+                  @if (service.moradorAtivo(); as ativo) {
+                    <img
+                      [src]="ativo.avatarUrl || 'https://ui-avatars.com/api/?name=' + ativo.nome"
+                      [alt]="ativo.nome"
+                      class="w-6 h-6 rounded-full object-cover border border-white shadow-xs shrink-0"
+                    />
+                    <span class="text-xs font-bold text-slate-800 max-w-[80px] xs:max-w-[100px] sm:max-w-none truncate">
+                      {{ ativo.nome }}
+                    </span>
+                  } @else {
+                    <div class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0">
+                      ?
+                    </div>
+                    <span class="text-xs font-semibold text-slate-700">
+                      Selecionar Perfil
+                    </span>
+                  }
                   <svg
                     class="w-3.5 h-3.5 text-slate-500 transition-transform duration-200 shrink-0"
                     [class.rotate-180]="menuPerfisAberto()"
@@ -101,9 +110,9 @@ import { Morador } from '../../models/cleanup.model';
                           type="button"
                           (click)="selecionarMorador(m)"
                           class="w-full flex items-center space-x-3 px-3 py-2.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors cursor-pointer text-left"
-                          [class.bg-blue-50]="m.id === ativo.id"
-                          [class.text-blue-700]="m.id === ativo.id"
-                          [class.font-bold]="m.id === ativo.id"
+                          [class.bg-blue-50]="m.id === service.moradorAtivo()?.id"
+                          [class.text-blue-700]="m.id === service.moradorAtivo()?.id"
+                          [class.font-bold]="m.id === service.moradorAtivo()?.id"
                         >
                           <img
                             [src]="m.avatarUrl || 'https://ui-avatars.com/api/?name=' + m.nome"
@@ -111,7 +120,7 @@ import { Morador } from '../../models/cleanup.model';
                             class="w-6 h-6 rounded-full object-cover"
                           />
                           <span class="flex-1 truncate">{{ m.nome }}</span>
-                          @if (m.id === ativo.id) {
+                          @if (m.id === service.moradorAtivo()?.id) {
                             <span class="text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded-full font-semibold">Ativo</span>
                           }
                         </button>
