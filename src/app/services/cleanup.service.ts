@@ -1,5 +1,6 @@
 import { Injectable, signal, computed, effect } from '@angular/core';
 import { Morador, Tarefa, RegistroLimpeza, EscalaSemana } from '../models/cleanup.model';
+import { supabase } from '../supabaseclient';
 
 const STORAGE_KEY_MORADORES = 'cleanup_moradores';
 const STORAGE_KEY_TAREFAS = 'cleanup_tarefas';
@@ -20,12 +21,15 @@ export class CleanupService {
     { id: 't-area-servico', titulo: 'Limpar Área de Serviço', comodo: 'Área de Serviço', concluida: false }
   ];
 
-  // SIGNALS PRINCIPAIS DE ESTADO
+  // SIGNALS PRINCIPAIS DE ESTADO (Com cache local imediato)
   readonly moradores = signal<Morador[]>(this.carregarMoradores());
   readonly escala = signal<EscalaSemana[]>(this.carregarEscala());
   readonly tarefas = signal<Tarefa[]>(this.carregarTarefas());
   readonly historico = signal<RegistroLimpeza[]>(this.carregarHistorico());
   readonly moradorAtivo = signal<Morador | null>(this.carregarMoradorAtivo());
+
+  // Indicador de status de sincronização com o Supabase
+  readonly sincronizandoComNuvem = signal<boolean>(false);
 
   // Controle de Modal de Gerenciamento de Membros
   readonly modalMembrosAberto = signal<boolean>(false);
@@ -34,6 +38,9 @@ export class CleanupService {
   readonly filtroMorador = signal<string>('TODOS');
   readonly filtroTarefa = signal<string>('');
   readonly filtroComodo = signal<string>('TODOS');
+
+  // Canal Realtime do Supabase
+  private canalRealtime: any = null;
 
   // SIGNALS COMPUTADOS
   readonly semanaAtual = computed<EscalaSemana | null>(() => {
@@ -113,6 +120,9 @@ export class CleanupService {
         }
       }
     });
+
+    // Inicializa sincronização e canais Realtime com o Supabase
+    this.inicializarSupabase();
   }
 
   // GERENCIAMENTO DE MEMBROS E RODÍZIO DINÂMICO
@@ -155,6 +165,10 @@ export class CleanupService {
       this.escala.set(escalaReorganizada);
     }
 
+    // Persiste no Supabase
+    this.inserirMoradorNoSupabase(novo);
+    this.persistirEscalaNoSupabase();
+
     return novo;
   }
 
@@ -165,6 +179,8 @@ export class CleanupService {
     if (novosMoradores.length === 0) {
       this.moradorAtivo.set(null);
       this.escala.set([]);
+      this.excluirMoradorDoSupabase(id);
+      this.persistirEscalaNoSupabase();
       return;
     }
 
@@ -194,6 +210,10 @@ export class CleanupService {
     }
 
     this.escala.set(escalaAtual);
+
+    // Persiste no Supabase
+    this.excluirMoradorDoSupabase(id);
+    this.persistirEscalaNoSupabase();
   }
 
   gerarEscalaParaMoradores(moradores: Morador[]): EscalaSemana[] {
@@ -293,6 +313,8 @@ export class CleanupService {
         };
       })
     );
+
+    this.persistirEscalaNoSupabase();
   }
 
   /**
@@ -310,6 +332,8 @@ export class CleanupService {
         };
       })
     );
+
+    this.persistirEscalaNoSupabase();
   }
 
   /**
@@ -345,6 +369,8 @@ export class CleanupService {
         return sem;
       })
     );
+
+    this.persistirEscalaNoSupabase();
   }
 
   /**
@@ -358,6 +384,8 @@ export class CleanupService {
           : sem
       )
     );
+
+    this.persistirEscalaNoSupabase();
   }
 
   /**
@@ -395,6 +423,7 @@ export class CleanupService {
     };
 
     this.escala.update(s => [...s, novaSemana]);
+    this.persistirEscalaNoSupabase();
   }
 
   /**
@@ -405,6 +434,8 @@ export class CleanupService {
       if (semanas.length <= 1 || semanas[0].semanaId === semanaId) return semanas;
       return semanas.filter(s => s.semanaId !== semanaId);
     });
+
+    this.persistirEscalaNoSupabase();
   }
 
   /**
@@ -414,6 +445,7 @@ export class CleanupService {
     const moradores = this.moradores();
     if (moradores.length === 0) {
       this.escala.set([]);
+      this.persistirEscalaNoSupabase();
       return;
     }
 
@@ -434,6 +466,7 @@ export class CleanupService {
 
     const novaEscala = this.recomporEscalaComNovosMoradores(primeiraSemana, moradores);
     this.escala.set(novaEscala);
+    this.persistirEscalaNoSupabase();
   }
 
   // AÇÕES DO CHECKLIST E CICLO
@@ -449,8 +482,9 @@ export class CleanupService {
       lista.map(t => (t.id === tarefaId ? { ...t, concluida: novoEstado } : t))
     );
 
+    let novoRegistro: RegistroLimpeza | null = null;
     if (novoEstado && morador) {
-      const novoRegistro: RegistroLimpeza = {
+      novoRegistro = {
         id: `reg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         moradorId: morador.id,
         moradorNome: morador.nome,
@@ -458,7 +492,13 @@ export class CleanupService {
         dataHora: new Date()
       };
 
-      this.historico.update(logs => [novoRegistro, ...logs]);
+      this.historico.update(logs => [novoRegistro!, ...logs]);
+    }
+
+    // Sincroniza com o Supabase
+    this.atualizarTarefaNoSupabase(tarefaId, novoEstado);
+    if (novoRegistro) {
+      this.inserirHistoricoNoSupabase(novoRegistro);
     }
   }
 
@@ -473,10 +513,12 @@ export class CleanupService {
     };
 
     this.tarefas.update(lista => [...lista, nova]);
+    this.inserirTarefaNoSupabase(nova);
   }
 
   removerTarefa(tarefaId: string): void {
     this.tarefas.update(lista => lista.filter(t => t.id !== tarefaId));
+    this.excluirTarefaDoSupabase(tarefaId);
   }
 
   reiniciarCicloSemanal(): void {
@@ -484,6 +526,9 @@ export class CleanupService {
     this.escala.update(items =>
       items.map((item, idx) => (idx === 0 ? { ...item, status: 'EM_ANDAMENTO' } : item))
     );
+
+    this.resetarTarefasNoSupabase();
+    this.persistirEscalaNoSupabase();
   }
 
   avancarSemana(): void {
@@ -526,10 +571,14 @@ export class CleanupService {
 
     this.escala.set(novaLista);
     this.tarefas.update(tList => tList.map(t => ({ ...t, concluida: false })));
+
+    this.resetarTarefasNoSupabase();
+    this.persistirEscalaNoSupabase();
   }
 
   limparHistorico(): void {
     this.historico.set([]);
+    this.limparHistoricoNoSupabase();
   }
 
   setMoradorAtivo(morador: Morador | null): void {
@@ -546,6 +595,283 @@ export class CleanupService {
 
   setFiltroComodo(comodo: string): void {
     this.filtroComodo.set(comodo);
+  }
+
+  // ==========================================
+  // INTEGRAÇÃO COM SUPABASE E TEMPO REAL (REALTIME)
+  // ==========================================
+
+  private async inicializarSupabase(): Promise<void> {
+    if (typeof window === 'undefined') return;
+
+    try {
+      this.sincronizandoComNuvem.set(true);
+      await this.sincronizarComSupabase();
+      this.iniciarRealtime();
+    } catch (err) {
+      console.warn('[CleanUp] Supabase em modo offline ou aguardando criação das tabelas:', err);
+    } finally {
+      this.sincronizandoComNuvem.set(false);
+    }
+  }
+
+  private async sincronizarComSupabase(): Promise<void> {
+    try {
+      // 1. Carrega Moradores
+      const { data: mData, error: mErr } = await supabase.from('moradores').select('*');
+      if (!mErr && mData && mData.length > 0) {
+        const moradoresDb: Morador[] = mData.map((m: any) => ({
+          id: m.id,
+          nome: m.nome,
+          avatarUrl: m.avatar_url
+        }));
+        this.moradores.set(moradoresDb);
+        if (!this.moradorAtivo()) {
+          this.moradorAtivo.set(moradoresDb[0]);
+        }
+      }
+
+      // 2. Carrega Tarefas
+      const { data: tData, error: tErr } = await supabase.from('tarefas').select('*').order('created_at', { ascending: true });
+      if (!tErr && tData) {
+        if (tData.length > 0) {
+          const tarefasDb: Tarefa[] = tData.map((t: any) => ({
+            id: t.id,
+            titulo: t.titulo,
+            comodo: t.comodo,
+            concluida: t.concluida
+          }));
+          this.tarefas.set(tarefasDb);
+        } else {
+          // Se a tabela estiver vazia na primeira vez, inicializa com as 5 tarefas base
+          await this.salvarTarefasIniciaisNoSupabase();
+        }
+      }
+
+      // 3. Carrega Escala de Rodízio
+      const { data: eData, error: eErr } = await supabase.from('escala').select('*').order('data_inicio', { ascending: true });
+      if (!eErr && eData && eData.length > 0) {
+        const escalaDb: EscalaSemana[] = eData.map((sem: any) => {
+          const responsaveis: Morador[] = sem.responsaveis || [];
+          return {
+            semanaId: sem.semana_id,
+            dataInicio: new Date(sem.data_inicio),
+            dataFim: new Date(sem.data_fim),
+            responsaveis,
+            responsavel: responsaveis.length > 0 ? responsaveis[0] : null,
+            status: sem.status
+          };
+        });
+        this.escala.set(escalaDb);
+      }
+
+      // 4. Carrega Histórico de Limpeza
+      const { data: hData, error: hErr } = await supabase.from('historico_limpeza').select('*').order('data_hora', { ascending: false }).limit(100);
+      if (!hErr && hData && hData.length > 0) {
+        const histDb: RegistroLimpeza[] = hData.map((h: any) => ({
+          id: h.id,
+          moradorId: h.morador_id,
+          moradorNome: h.morador_nome,
+          tarefaNome: h.tarefa_nome,
+          dataHora: new Date(h.data_hora)
+        }));
+        this.historico.set(histDb);
+      }
+    } catch {
+      // Falha graciosa mantendo os dados locais
+    }
+  }
+
+  private iniciarRealtime(): void {
+    if (this.canalRealtime) return;
+
+    this.canalRealtime = supabase
+      .channel('cleanup-live-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'moradores' }, () => {
+        this.recarregarMoradoresDoSupabase();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tarefas' }, (payload) => {
+        this.processarMudancaTarefaRealtime(payload);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'escala' }, () => {
+        this.recarregarEscalaDoSupabase();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'historico_limpeza' }, (payload) => {
+        if (payload.eventType === 'INSERT' && payload.new) {
+          const n = payload.new as any;
+          const reg: RegistroLimpeza = {
+            id: n.id,
+            moradorId: n.morador_id,
+            moradorNome: n.morador_nome,
+            tarefaNome: n.tarefa_nome,
+            dataHora: new Date(n.data_hora)
+          };
+          this.historico.update(lista => {
+            if (lista.some(item => item.id === reg.id)) return lista;
+            return [reg, ...lista];
+          });
+        } else {
+          this.recarregarHistoricoDoSupabase();
+        }
+      })
+      .subscribe();
+  }
+
+  private async recarregarMoradoresDoSupabase(): Promise<void> {
+    try {
+      const { data } = await supabase.from('moradores').select('*');
+      if (data) {
+        const lista: Morador[] = data.map((m: any) => ({
+          id: m.id,
+          nome: m.nome,
+          avatarUrl: m.avatar_url
+        }));
+        this.moradores.set(lista);
+      }
+    } catch {}
+  }
+
+  private async recarregarTarefasDoSupabase(): Promise<void> {
+    try {
+      const { data } = await supabase.from('tarefas').select('*').order('created_at', { ascending: true });
+      if (data) {
+        const lista: Tarefa[] = data.map((t: any) => ({
+          id: t.id,
+          titulo: t.titulo,
+          comodo: t.comodo,
+          concluida: t.concluida
+        }));
+        this.tarefas.set(lista);
+      }
+    } catch {}
+  }
+
+  private processarMudancaTarefaRealtime(payload: any): void {
+    if (payload.eventType === 'UPDATE' && payload.new) {
+      const nova = payload.new;
+      this.tarefas.update(lista =>
+        lista.map(t => (t.id === nova.id ? { ...t, concluida: nova.concluida, titulo: nova.titulo, comodo: nova.comodo } : t))
+      );
+    } else {
+      this.recarregarTarefasDoSupabase();
+    }
+  }
+
+  private async recarregarEscalaDoSupabase(): Promise<void> {
+    try {
+      const { data } = await supabase.from('escala').select('*').order('data_inicio', { ascending: true });
+      if (data) {
+        const escalaDb: EscalaSemana[] = data.map((sem: any) => {
+          const responsaveis: Morador[] = sem.responsaveis || [];
+          return {
+            semanaId: sem.semana_id,
+            dataInicio: new Date(sem.data_inicio),
+            dataFim: new Date(sem.data_fim),
+            responsaveis,
+            responsavel: responsaveis.length > 0 ? responsaveis[0] : null,
+            status: sem.status
+          };
+        });
+        this.escala.set(escalaDb);
+      }
+    } catch {}
+  }
+
+  private async recarregarHistoricoDoSupabase(): Promise<void> {
+    try {
+      const { data } = await supabase.from('historico_limpeza').select('*').order('data_hora', { ascending: false }).limit(100);
+      if (data) {
+        const hist: RegistroLimpeza[] = data.map((h: any) => ({
+          id: h.id,
+          moradorId: h.morador_id,
+          moradorNome: h.morador_nome,
+          tarefaNome: h.tarefa_nome,
+          dataHora: new Date(h.data_hora)
+        }));
+        this.historico.set(hist);
+      }
+    } catch {}
+  }
+
+  private safeRun(op: PromiseLike<any>): void {
+    Promise.resolve(op).catch(() => {});
+  }
+
+  private inserirMoradorNoSupabase(morador: Morador): void {
+    this.safeRun(supabase.from('moradores').insert({
+      id: morador.id,
+      nome: morador.nome,
+      avatar_url: morador.avatarUrl
+    }));
+  }
+
+  private excluirMoradorDoSupabase(id: string): void {
+    this.safeRun(supabase.from('moradores').delete().eq('id', id));
+  }
+
+  private atualizarTarefaNoSupabase(id: string, concluida: boolean): void {
+    this.safeRun(supabase.from('tarefas').update({ concluida }).eq('id', id));
+  }
+
+  private inserirTarefaNoSupabase(tarefa: Tarefa): void {
+    this.safeRun(supabase.from('tarefas').insert({
+      id: tarefa.id,
+      titulo: tarefa.titulo,
+      comodo: tarefa.comodo,
+      concluida: tarefa.concluida
+    }));
+  }
+
+  private excluirTarefaDoSupabase(id: string): void {
+    this.safeRun(supabase.from('tarefas').delete().eq('id', id));
+  }
+
+  private resetarTarefasNoSupabase(): void {
+    this.safeRun(supabase.from('tarefas').update({ concluida: false }).neq('id', ''));
+  }
+
+  private inserirHistoricoNoSupabase(registro: RegistroLimpeza): void {
+    this.safeRun(supabase.from('historico_limpeza').insert({
+      id: registro.id,
+      morador_id: registro.moradorId,
+      morador_nome: registro.moradorNome,
+      tarefa_nome: registro.tarefaNome,
+      data_hora: registro.dataHora.toISOString()
+    }));
+  }
+
+  private limparHistoricoNoSupabase(): void {
+    this.safeRun(supabase.from('historico_limpeza').delete().neq('id', ''));
+  }
+
+  private async salvarTarefasIniciaisNoSupabase(): Promise<void> {
+    try {
+      const rows = this.tarefasIniciais.map(t => ({
+        id: t.id,
+        titulo: t.titulo,
+        comodo: t.comodo,
+        concluida: false
+      }));
+      await supabase.from('tarefas').upsert(rows);
+    } catch {}
+  }
+
+  private persistirEscalaNoSupabase(): void {
+    const lista = this.escala();
+    if (lista.length === 0) {
+      this.safeRun(supabase.from('escala').delete().neq('semana_id', ''));
+      return;
+    }
+
+    const rows = lista.map(sem => ({
+      semana_id: sem.semanaId,
+      data_inicio: sem.dataInicio.toISOString(),
+      data_fim: sem.dataFim.toISOString(),
+      responsaveis: sem.responsaveis || [],
+      status: sem.status
+    }));
+
+    this.safeRun(supabase.from('escala').upsert(rows));
   }
 
   // MÉTODOS DE CARREGAMENTO LOCAL / HYDRATION

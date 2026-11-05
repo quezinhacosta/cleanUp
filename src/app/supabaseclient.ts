@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { environment, SUPABASE_URL, SUPABASE_ANON_KEY } from '../environemts/environemts';
+import { environment, SUPABASE_URL, SUPABASE_ANON_KEY } from '../environments/environment';
 
 /**
  * Normaliza a URL do Supabase removendo '/rest/v1' se presente,
