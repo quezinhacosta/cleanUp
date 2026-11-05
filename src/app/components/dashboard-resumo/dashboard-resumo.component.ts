@@ -149,26 +149,26 @@ import { EscalaSemana } from '../../models/cleanup.model';
         </div>
 
         <!-- Footer Actions Bar -->
-        <div class="mt-5 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div class="flex items-center text-slate-500">
-            <svg class="w-4 h-4 mr-1.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div class="mt-5 pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div class="flex items-center text-slate-500 text-[11px] sm:text-xs">
+            <svg class="w-4 h-4 mr-1.5 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Dica: Marque as tarefas no checklist para alimentar o log de auditoria em tempo real.
+            <span>Marque as tarefas no checklist para assinar o log em tempo real.</span>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
               (click)="service.abrirModalMembros()"
-              class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-800 hover:bg-slate-100 transition-colors border border-slate-200"
+              class="flex-1 sm:flex-none text-center px-2.5 sm:px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-800 hover:bg-slate-100 transition-colors border border-slate-200 text-xs font-medium"
             >
               Membros ({{ service.moradores().length }})
             </button>
             <button
               type="button"
               (click)="service.reiniciarCicloSemanal()"
-              class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-800 hover:bg-slate-100 transition-colors border border-slate-200"
+              class="flex-1 sm:flex-none text-center px-2.5 sm:px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-800 hover:bg-slate-100 transition-colors border border-slate-200 text-xs font-medium"
               title="Zerar tarefas do ciclo atual"
             >
               Reiniciar Ciclo
@@ -176,7 +176,7 @@ import { EscalaSemana } from '../../models/cleanup.model';
             <button
               type="button"
               (click)="service.avancarSemana()"
-              class="inline-flex items-center px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium shadow-xs transition-colors"
+              class="w-full sm:w-auto inline-flex items-center justify-center px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium shadow-xs transition-colors text-xs"
               title="Avançar para o próximo morador da escala"
             >
               Avançar Rodízio
