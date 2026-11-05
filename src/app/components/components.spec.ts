@@ -5,6 +5,7 @@ import { ChecklistTarefasComponent } from './checklist-tarefas/checklist-tarefas
 import { HistoricoAtividadesComponent } from './historico-atividades/historico-atividades.component';
 import { EscalaRodizioComponent } from './escala-rodizio/escala-rodizio.component';
 import { GerenciarMembrosComponent } from './gerenciar-membros/gerenciar-membros.component';
+import { SeletorPerfilComponent } from './seletor-perfil/seletor-perfil.component';
 import { CleanupService } from '../services/cleanup.service';
 
 describe('CleanUp Components Test Suite', () => {
@@ -17,7 +18,8 @@ describe('CleanUp Components Test Suite', () => {
         ChecklistTarefasComponent,
         HistoricoAtividadesComponent,
         EscalaRodizioComponent,
-        GerenciarMembrosComponent
+        GerenciarMembrosComponent,
+        SeletorPerfilComponent
       ],
       providers: [CleanupService]
     }).compileComponents();
@@ -28,23 +30,52 @@ describe('CleanUp Components Test Suite', () => {
   });
 
   describe('HeaderComponent', () => {
-    it('deve renderizar o logo CleanUp e botão de membros', () => {
+    it('deve renderizar o logo CleanUp e menção a Quezia Costa', () => {
       const fixture = TestBed.createComponent(HeaderComponent);
       fixture.detectChanges();
       const compiled = fixture.nativeElement as HTMLElement;
 
       expect(compiled.textContent).toContain('CleanUp');
+      expect(compiled.textContent).toContain('Quezia Costa');
       expect(compiled.textContent).toContain('Membros');
     });
 
-    it('deve exibir o morador atualmente ativo quando cadastrado', () => {
+    it('deve alternar menu de perfis via clique', () => {
+      const fixture = TestBed.createComponent(HeaderComponent);
       const service = TestBed.inject(CleanupService);
       service.adicionarMorador('Quezia Costa');
-      const fixture = TestBed.createComponent(HeaderComponent);
+      service.adicionarMorador('Carlos Souza');
       fixture.detectChanges();
-      const compiled = fixture.nativeElement as HTMLElement;
 
-      expect(compiled.textContent).toContain('Quezia Costa');
+      const comp = fixture.componentInstance;
+      expect(comp.menuPerfisAberto()).toBe(false);
+
+      comp.alternarMenuPerfis();
+      expect(comp.menuPerfisAberto()).toBe(true);
+
+      comp.selecionarMorador(service.moradores()[1]);
+      expect(service.moradorAtivo()?.nome).toBe('Carlos Souza');
+      expect(comp.menuPerfisAberto()).toBe(false);
+    });
+  });
+
+  describe('SeletorPerfilComponent', () => {
+    it('deve listar perfis e permitir alternar morador ativo com 1 clique', () => {
+      const service = TestBed.inject(CleanupService);
+      const m1 = service.adicionarMorador('Quezia Costa');
+      const m2 = service.adicionarMorador('Carlos Souza');
+
+      const fixture = TestBed.createComponent(SeletorPerfilComponent);
+      fixture.detectChanges();
+
+      const comp = fixture.componentInstance;
+      expect(service.moradorAtivo()?.id).toBe(m1.id);
+
+      comp.selecionar(m2);
+      fixture.detectChanges();
+
+      expect(service.moradorAtivo()?.id).toBe(m2.id);
+      expect(fixture.nativeElement.textContent).toContain('Carlos Souza');
     });
   });
 
@@ -72,14 +103,14 @@ describe('CleanUp Components Test Suite', () => {
   });
 
   describe('ChecklistTarefasComponent', () => {
-    it('deve listar tarefas e permitir filtrar por cômodo', () => {
+    it('deve listar tarefas base e permitir filtrar por cômodo', () => {
       const fixture = TestBed.createComponent(ChecklistTarefasComponent);
       fixture.detectChanges();
       const service = TestBed.inject(CleanupService);
       const compiled = fixture.nativeElement as HTMLElement;
 
       expect(compiled.textContent).toContain('Checklist de Tarefas');
-      expect(service.tarefas().length).toBeGreaterThan(0);
+      expect(service.tarefas().length).toBe(5);
 
       service.setFiltroComodo('Banheiro');
       fixture.detectChanges();
@@ -114,7 +145,7 @@ describe('CleanUp Components Test Suite', () => {
   });
 
   describe('HistoricoAtividadesComponent', () => {
-    it('deve exibir o log de transparência com formato HH:mm:ss', () => {
+    it('deve exibir o log de transparência com formato HH:mm:ss e toggle de PDF', () => {
       const fixture = TestBed.createComponent(HistoricoAtividadesComponent);
       fixture.detectChanges();
       const compiled = fixture.nativeElement as HTMLElement;
@@ -122,8 +153,15 @@ describe('CleanUp Components Test Suite', () => {
       expect(compiled.textContent).toContain('Feed / Histórico de Atividades');
       expect(compiled.textContent).toContain('Log de Transparência');
 
+      const comp = fixture.componentInstance;
+      expect(comp.menuPdfAberto()).toBe(false);
+      comp.alternarMenuPdf();
+      expect(comp.menuPdfAberto()).toBe(true);
+      comp.fecharMenuPdf();
+      expect(comp.menuPdfAberto()).toBe(false);
+
       const dataTeste = new Date(2026, 10, 3, 14, 25, 30);
-      const horaStr = fixture.componentInstance.formatarHoraPrecisa(dataTeste);
+      const horaStr = comp.formatarHoraPrecisa(dataTeste);
       expect(horaStr).toBe('14:25:30');
     });
   });

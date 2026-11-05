@@ -123,7 +123,7 @@ import { EscalaSemana } from '../../models/cleanup.model';
 export class EscalaRodizioComponent {
   service = inject(CleanupService);
 
-  formatarDataCurta(data: Date): string {
+  formatarDataCurta(data: any): string {
     const d = new Date(data);
     const dia = d.getDate().toString().padStart(2, '0');
     const mes = (d.getMonth() + 1).toString().padStart(2, '0');

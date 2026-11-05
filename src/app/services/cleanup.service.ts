@@ -11,19 +11,16 @@ const STORAGE_KEY_MORADOR_ATIVO = 'cleanup_morador_ativo';
   providedIn: 'root'
 })
 export class CleanupService {
-  // Tarefas padrão iniciais
+  // Tarefas base exigidas: limpar sala, corredor, banheiro, cozinha, área de serviço
   private readonly tarefasIniciais: Tarefa[] = [
-    { id: 't1', titulo: 'Limpar Banheiro Principal (Pia, Vaso e Box)', comodo: 'Banheiro', concluida: false },
-    { id: 't2', titulo: 'Lavar e Guardar Louça Acumulada', comodo: 'Cozinha', concluida: false },
-    { id: 't3', titulo: 'Desinfetar Pia e Fogão', comodo: 'Cozinha', concluida: false },
-    { id: 't4', titulo: 'Passar Pano no Chão da Cozinha', comodo: 'Cozinha', concluida: false },
-    { id: 't5', titulo: 'Varrer e Passar Pano na Sala de Estar', comodo: 'Sala', concluida: false },
-    { id: 't6', titulo: 'Esvaziar Lixeiras e Descartar Lixo Externo', comodo: 'Área Comum', concluida: false },
-    { id: 't7', titulo: 'Organizar Mesas e Sofá da Sala', comodo: 'Sala', concluida: false },
-    { id: 't8', titulo: 'Limpar Vidros e Varrer Varanda', comodo: 'Varanda', concluida: false }
+    { id: 't-sala', titulo: 'Limpar Sala', comodo: 'Sala', concluida: false },
+    { id: 't-corredor', titulo: 'Limpar Corredor', comodo: 'Corredor', concluida: false },
+    { id: 't-banheiro', titulo: 'Limpar Banheiro', comodo: 'Banheiro', concluida: false },
+    { id: 't-cozinha', titulo: 'Limpar Cozinha', comodo: 'Cozinha', concluida: false },
+    { id: 't-area-servico', titulo: 'Limpar Área de Serviço', comodo: 'Área de Serviço', concluida: false }
   ];
 
-  // SIGNALS PRINCIPAIS DE ESTADO (Sem dados mocados - inicia vazio caso não haja no storage)
+  // SIGNALS PRINCIPAIS DE ESTADO
   readonly moradores = signal<Morador[]>(this.carregarMoradores());
   readonly escala = signal<EscalaSemana[]>(this.carregarEscala());
   readonly tarefas = signal<Tarefa[]>(this.carregarTarefas());
@@ -79,7 +76,7 @@ export class CleanupService {
   });
 
   readonly comodos = computed<string[]>(() => {
-    return ['TODOS', 'Cozinha', 'Banheiro', 'Sala', 'Área Comum', 'Varanda'];
+    return ['TODOS', 'Sala', 'Corredor', 'Banheiro', 'Cozinha', 'Área de Serviço', 'Área Comum', 'Varanda'];
   });
 
   constructor() {
@@ -118,7 +115,7 @@ export class CleanupService {
     });
   }
 
-  // GERENCIAMENTO DE MEMBROS / MORADORES
+  // GERENCIAMENTO DE MEMBROS E RODÍZIO DINÂMICO
 
   abrirModalMembros(): void {
     this.modalMembrosAberto.set(true);
@@ -148,8 +145,16 @@ export class CleanupService {
       this.moradorAtivo.set(novo);
     }
 
-    // Atualiza a escala de rodízio automaticamente
-    this.escala.set(this.gerarEscalaParaMoradores(novosMoradores));
+    // Atualiza a escala incluindo o novo morador no rodízio
+    const escalaAtual = this.escala();
+    if (escalaAtual.length === 0) {
+      this.escala.set(this.gerarEscalaParaMoradores(novosMoradores));
+    } else {
+      // Mantém a semana atual em andamento e reorganiza as próximas semanas com o novo membro
+      const semanaAtual = escalaAtual[0];
+      const escalaReorganizada = this.recomporEscalaComNovosMoradores(semanaAtual, novosMoradores);
+      this.escala.set(escalaReorganizada);
+    }
 
     return novo;
   }
@@ -158,14 +163,32 @@ export class CleanupService {
     const novosMoradores = this.moradores().filter(m => m.id !== id);
     this.moradores.set(novosMoradores);
 
-    // Se o morador removido era o ativo, seleciona outro ou null
-    if (this.moradorAtivo()?.id === id) {
-      this.moradorAtivo.set(novosMoradores.length > 0 ? novosMoradores[0] : null);
+    if (novosMoradores.length === 0) {
+      this.moradorAtivo.set(null);
+      this.escala.set([]);
+      return;
     }
 
-    // Se não restou nenhum morador, esvazia a escala; caso contrário, recalcula
-    if (novosMoradores.length === 0) {
-      this.escala.set([]);
+    // Se o morador removido era o ativo, muda para o primeiro disponível
+    if (this.moradorAtivo()?.id === id) {
+      this.moradorAtivo.set(novosMoradores[0]);
+    }
+
+    // Atualiza a escala removendo o morador e readequando os ciclos
+    const escalaAtual = this.escala();
+    if (escalaAtual.length > 0) {
+      let semanaAtual = escalaAtual[0];
+      // Se a semana atual pertencia ao morador removido, passa imediatamente para o próximo
+      if (semanaAtual.responsavel.id === id) {
+        semanaAtual = {
+          ...semanaAtual,
+          responsavel: novosMoradores[0],
+          status: 'EM_ANDAMENTO'
+        };
+        this.moradorAtivo.set(novosMoradores[0]);
+      }
+      const escalaReorganizada = this.recomporEscalaComNovosMoradores(semanaAtual, novosMoradores);
+      this.escala.set(escalaReorganizada);
     } else {
       this.escala.set(this.gerarEscalaParaMoradores(novosMoradores));
     }
@@ -194,12 +217,49 @@ export class CleanupService {
       dataFim.setHours(23, 59, 59, 999);
 
       escala.push({
-        semanaId: `sem-${i + 1}-${moradores[i % moradores.length].id}`,
+        semanaId: `sem-${i + 1}-${moradores[i % moradores.length].id}-${Date.now()}`,
         dataInicio,
         dataFim,
         responsavel: moradores[i % moradores.length],
         status: i === 0 ? 'EM_ANDAMENTO' : 'PENDENTE'
       });
+    }
+
+    return escala;
+  }
+
+  private recomporEscalaComNovosMoradores(semanaAtual: EscalaSemana, moradores: Morador[]): EscalaSemana[] {
+    if (moradores.length === 0) return [];
+
+    const escala: EscalaSemana[] = [{ ...semanaAtual }];
+    const totalSemanas = Math.max(4, moradores.length);
+
+    // Encontra a posição do morador atual na lista atualizada
+    const idxAtual = moradores.findIndex(m => m.id === semanaAtual.responsavel.id);
+    const inicioProx = idxAtual >= 0 ? (idxAtual + 1) : 0;
+
+    let baseFim = new Date(semanaAtual.dataFim);
+
+    for (let i = 1; i < totalSemanas; i++) {
+      const proximaDataInicio = new Date(baseFim);
+      proximaDataInicio.setDate(proximaDataInicio.getDate() + 1);
+      proximaDataInicio.setHours(0, 0, 0, 0);
+
+      const proximaDataFim = new Date(proximaDataInicio);
+      proximaDataFim.setDate(proximaDataInicio.getDate() + 6);
+      proximaDataFim.setHours(23, 59, 59, 999);
+
+      const responsavel = moradores[(inicioProx + (i - 1)) % moradores.length];
+
+      escala.push({
+        semanaId: `sem-${i + 1}-${responsavel.id}-${Date.now() + i}`,
+        dataInicio: proximaDataInicio,
+        dataFim: proximaDataFim,
+        responsavel,
+        status: 'PENDENTE'
+      });
+
+      baseFim = proximaDataFim;
     }
 
     return escala;
@@ -252,7 +312,7 @@ export class CleanupService {
   reiniciarCicloSemanal(): void {
     this.tarefas.update(lista => lista.map(t => ({ ...t, concluida: false })));
     this.escala.update(items =>
-      items.map((item, idx) => (idx === 0 ? { ...item, status: 'PENDENTE' } : item))
+      items.map((item, idx) => (idx === 0 ? { ...item, status: 'EM_ANDAMENTO' } : item))
     );
   }
 
@@ -272,22 +332,24 @@ export class CleanupService {
     proximaDataFim.setDate(proximaDataInicio.getDate() + 6);
     proximaDataFim.setHours(23, 59, 59, 999);
 
-    // Próximo morador na sequência
-    const proxMoradorIndex = lista.length % moradores.length;
+    // Encontra quem era o responsável da última semana e pega estritamente o próximo da lista de moradores
+    const ultimoMoradorIndex = moradores.findIndex(m => m.id === ultimaSemana.responsavel.id);
+    const proxMoradorIndex = ultimoMoradorIndex >= 0 ? (ultimoMoradorIndex + 1) % moradores.length : 0;
     const proxMorador = moradores[proxMoradorIndex];
 
     const novaSemana: EscalaSemana = {
-      semanaId: `sem-${Date.now()}`,
+      semanaId: `sem-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       dataInicio: proximaDataInicio,
       dataFim: proximaDataFim,
       responsavel: proxMorador,
       status: 'PENDENTE'
     };
 
-    // Remove a primeira e insere a nova semana no final
+    // Remove a primeira e insere a nova semana no final da fila de rodízio
     const novaLista = [...lista.slice(1), novaSemana];
     if (novaLista.length > 0) {
-      novaLista[0].status = 'EM_ANDAMENTO';
+      novaLista[0] = { ...novaLista[0], status: 'EM_ANDAMENTO' };
+      // O morador ativo passa automaticamente a ser o responsável da nova semana
       this.setMoradorAtivo(novaLista[0].responsavel);
     }
 

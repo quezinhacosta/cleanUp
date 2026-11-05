@@ -17,12 +17,19 @@ describe('CleanupService', () => {
     localStorage.clear();
   });
 
-  it('deve inicializar sem dados mocados quando storage estiver limpo', () => {
+  it('deve inicializar sem moradores mocados e com checklist base de 5 tarefas principais', () => {
     expect(service.moradores().length).toBe(0);
     expect(service.escala().length).toBe(0);
     expect(service.historico().length).toBe(0);
     expect(service.moradorAtivo()).toBeNull();
-    expect(service.tarefas().length).toBeGreaterThan(0);
+
+    // Tarefas base exigidas
+    const titulos = service.tarefas().map(t => t.titulo);
+    expect(titulos).toContain('Limpar Sala');
+    expect(titulos).toContain('Limpar Corredor');
+    expect(titulos).toContain('Limpar Banheiro');
+    expect(titulos).toContain('Limpar Cozinha');
+    expect(titulos).toContain('Limpar Área de Serviço');
   });
 
   it('deve permitir adicionar novos membros e gerar o rodízio da escala dinamicamente', () => {
@@ -37,6 +44,29 @@ describe('CleanupService', () => {
     // Escala deve alternar entre Quezia e Carlos
     expect(service.escala()[0].responsavel.nome).toBe('Quezia Costa');
     expect(service.escala()[1].responsavel.nome).toBe('Carlos Souza');
+  });
+
+  it('deve alternar o rodízio de forma estritamente rotativa entre múltiplos moradores ao avançar', () => {
+    const m1 = service.adicionarMorador('Quezia Costa');
+    const m2 = service.adicionarMorador('Carlos Souza');
+    const m3 = service.adicionarMorador('Ana Lima');
+
+    expect(service.semanaAtual()?.responsavel.nome).toBe('Quezia Costa');
+
+    // Avanço 1 -> deve passar para Carlos
+    service.avancarSemana();
+    expect(service.semanaAtual()?.responsavel.nome).toBe('Carlos Souza');
+    expect(service.moradorAtivo()?.nome).toBe('Carlos Souza');
+
+    // Avanço 2 -> deve passar para Ana
+    service.avancarSemana();
+    expect(service.semanaAtual()?.responsavel.nome).toBe('Ana Lima');
+    expect(service.moradorAtivo()?.nome).toBe('Ana Lima');
+
+    // Avanço 3 -> deve voltar para Quezia
+    service.avancarSemana();
+    expect(service.semanaAtual()?.responsavel.nome).toBe('Quezia Costa');
+    expect(service.moradorAtivo()?.nome).toBe('Quezia Costa');
   });
 
   it('deve permitir remover membro e readequar a escala de rodízio', () => {
@@ -104,24 +134,8 @@ describe('CleanupService', () => {
     expect(service.historicoFiltrado()[0].moradorId).toBe(morador1.id);
 
     service.setFiltroMorador('TODOS');
-    service.setFiltroTarefa(service.tarefas()[1].titulo.substring(0, 5));
+    service.setFiltroTarefa('Corredor');
     expect(service.historicoFiltrado().length).toBe(1);
     expect(service.historicoFiltrado()[0].tarefaNome).toBe(service.tarefas()[1].titulo);
-  });
-
-  it('deve avançar o rodízio da escala para a próxima semana', () => {
-    const m1 = service.adicionarMorador('Quezia Costa');
-    const m2 = service.adicionarMorador('Carlos Souza');
-
-    const escalaOriginal = service.escala();
-    const responsavelProximaSemana = escalaOriginal[1].responsavel;
-
-    service.avancarSemana();
-
-    const novaEscala = service.escala();
-    expect(novaEscala.length).toBeGreaterThanOrEqual(4);
-    expect(novaEscala[0].responsavel.id).toBe(responsavelProximaSemana.id);
-    expect(novaEscala[0].status).toBe('EM_ANDAMENTO');
-    expect(service.progressoSemana().concluidas).toBe(0);
   });
 });

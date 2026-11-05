@@ -183,10 +183,12 @@ import { CleanupService } from '../../services/cleanup.service';
 export class DashboardResumoComponent {
   service = inject(CleanupService);
 
-  formatarPeriodo(inicio: Date, fim: Date): string {
+  formatarPeriodo(inicio: any, fim: any): string {
+    const dIniObj = new Date(inicio);
+    const dFimObj = new Date(fim);
     const pad = (n: number) => n.toString().padStart(2, '0');
-    const dIni = `${pad(inicio.getDate())}/${pad(inicio.getMonth() + 1)}`;
-    const dFim = `${pad(fim.getDate())}/${pad(fim.getMonth() + 1)}`;
+    const dIni = `${pad(dIniObj.getDate())}/${pad(dIniObj.getMonth() + 1)}`;
+    const dFim = `${pad(dFimObj.getDate())}/${pad(dFimObj.getMonth() + 1)}`;
     return `${dIni} a ${dFim}`;
   }
 }

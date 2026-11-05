@@ -7,7 +7,7 @@ export interface Morador {
 export interface Tarefa {
   id: string;
   titulo: string;
-  comodo: 'Cozinha' | 'Banheiro' | 'Sala' | 'Área Comum' | 'Varanda';
+  comodo: 'Cozinha' | 'Banheiro' | 'Sala' | 'Corredor' | 'Área de Serviço' | 'Área Comum' | 'Varanda' | string;
   concluida: boolean;
 }
 

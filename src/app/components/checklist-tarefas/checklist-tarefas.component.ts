@@ -187,11 +187,13 @@ import { Tarefa } from '../../models/cleanup.model';
                   [(ngModel)]="novoComodo"
                   class="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 >
-                  <option value="Cozinha">Cozinha</option>
-                  <option value="Banheiro">Banheiro</option>
                   <option value="Sala">Sala</option>
-                  <option value="Área Comum">Área Comum</option>
+                  <option value="Corredor">Corredor</option>
+                  <option value="Banheiro">Banheiro</option>
+                  <option value="Cozinha">Cozinha</option>
+                  <option value="Área de Serviço">Área de Serviço</option>
                   <option value="Varanda">Varanda</option>
+                  <option value="Área Comum">Área Comum</option>
                 </select>
               </div>
             </div>
@@ -281,16 +283,20 @@ export class ChecklistTarefasComponent {
 
   getBadgeComodo(comodo: Tarefa['comodo']): string {
     switch (comodo) {
-      case 'Cozinha':
-        return 'bg-amber-50 text-amber-700 border border-amber-200';
-      case 'Banheiro':
-        return 'bg-cyan-50 text-cyan-700 border border-cyan-200';
       case 'Sala':
         return 'bg-purple-50 text-purple-700 border border-purple-200';
-      case 'Área Comum':
-        return 'bg-blue-50 text-blue-700 border border-blue-200';
+      case 'Corredor':
+        return 'bg-orange-50 text-orange-700 border border-orange-200';
+      case 'Banheiro':
+        return 'bg-cyan-50 text-cyan-700 border border-cyan-200';
+      case 'Cozinha':
+        return 'bg-amber-50 text-amber-700 border border-amber-200';
+      case 'Área de Serviço':
+        return 'bg-teal-50 text-teal-700 border border-teal-200';
       case 'Varanda':
         return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+      case 'Área Comum':
+        return 'bg-blue-50 text-blue-700 border border-blue-200';
       default:
         return 'bg-slate-50 text-slate-700 border border-slate-200';
     }

@@ -6,6 +6,7 @@ import { ChecklistTarefasComponent } from './components/checklist-tarefas/checkl
 import { HistoricoAtividadesComponent } from './components/historico-atividades/historico-atividades.component';
 import { EscalaRodizioComponent } from './components/escala-rodizio/escala-rodizio.component';
 import { GerenciarMembrosComponent } from './components/gerenciar-membros/gerenciar-membros.component';
+import { SeletorPerfilComponent } from './components/seletor-perfil/seletor-perfil.component';
 
 @Component({
   selector: 'app-root',
@@ -14,6 +15,7 @@ import { GerenciarMembrosComponent } from './components/gerenciar-membros/gerenc
     CommonModule,
     HeaderComponent,
     DashboardResumoComponent,
+    SeletorPerfilComponent,
     ChecklistTarefasComponent,
     HistoricoAtividadesComponent,
     EscalaRodizioComponent,

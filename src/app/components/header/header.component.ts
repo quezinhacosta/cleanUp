@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CleanupService } from '../../services/cleanup.service';
 import { Morador } from '../../models/cleanup.model';
@@ -33,18 +33,20 @@ import { Morador } from '../../models/cleanup.model';
                   </span>
                 }
               </div>
-              <p class="text-xs text-slate-500 hidden sm:block">Transparência e escala de limpeza do apartamento</p>
+              <p class="text-xs text-slate-500 hidden sm:block">
+                Transparência e escala de limpeza &bull; Feito por <strong>Quezia Costa</strong>
+              </p>
             </div>
           </div>
 
-          <!-- Ações da Direita: Gerenciar Membros + Morador Ativo -->
+          <!-- Ações da Direita: Gerenciar Membros + Seletor de Perfil -->
           <div class="flex items-center space-x-2 sm:space-x-3">
             
             <!-- Botão Gerenciar Membros -->
             <button
               type="button"
               (click)="service.abrirModalMembros()"
-              class="inline-flex items-center px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors"
+              class="inline-flex items-center px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
             >
               <svg class="w-4 h-4 mr-1.5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
@@ -55,72 +57,87 @@ import { Morador } from '../../models/cleanup.model';
               </span>
             </button>
 
-            <!-- Seletor do Morador Ativo -->
+            <!-- Seletor do Morador Ativo com Toggle de Clique -->
             @if (service.moradorAtivo(); as ativo) {
-              <div class="relative group">
+              <div class="relative">
                 <button
                   type="button"
-                  class="flex items-center space-x-2 bg-slate-100 hover:bg-slate-200/80 active:bg-slate-200 transition-colors py-1.5 px-3 rounded-full border border-slate-200 text-left focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  (click)="alternarMenuPerfis()"
+                  class="flex items-center space-x-2 bg-slate-100 hover:bg-slate-200/80 active:bg-slate-200 transition-colors py-1.5 px-3 rounded-full border border-slate-200 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 >
                   <img
                     [src]="ativo.avatarUrl || 'https://ui-avatars.com/api/?name=' + ativo.nome"
                     [alt]="ativo.nome"
                     class="w-6 h-6 rounded-full object-cover border border-white shadow-xs"
                   />
-                  <span class="text-xs font-medium text-slate-800 max-w-[110px] sm:max-w-none truncate">
+                  <span class="text-xs font-bold text-slate-800 max-w-[100px] sm:max-w-none truncate">
                     {{ ativo.nome }}
                   </span>
-                  <svg class="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg
+                    class="w-3.5 h-3.5 text-slate-500 transition-transform duration-200"
+                    [class.rotate-180]="menuPerfisAberto()"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
 
-                <!-- Dropdown Menu -->
-                <div class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 hidden group-hover:block hover:block z-50">
-                  <div class="px-3 py-1.5 border-b border-slate-100">
-                    <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Alternar Morador</p>
-                  </div>
-                  @for (m of service.moradores(); track m.id) {
-                    <button
-                      type="button"
-                      (click)="selecionarMorador(m)"
-                      class="w-full flex items-center space-x-3 px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-                      [class.bg-blue-50]="m.id === ativo.id"
-                      [class.text-blue-700]="m.id === ativo.id"
-                      [class.font-semibold]="m.id === ativo.id"
-                    >
-                      <img
-                        [src]="m.avatarUrl || 'https://ui-avatars.com/api/?name=' + m.nome"
-                        [alt]="m.nome"
-                        class="w-6 h-6 rounded-full object-cover"
-                      />
-                      <span class="flex-1 text-left truncate">{{ m.nome }}</span>
-                      @if (m.id === ativo.id) {
-                        <svg class="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                        </svg>
+                <!-- Dropdown Menu com Controle Explícito de Clique -->
+                @if (menuPerfisAberto()) {
+                  <!-- Backdrop invisível para fechar ao clicar fora -->
+                  <div class="fixed inset-0 z-40" (click)="fecharMenuPerfis()"></div>
+
+                  <div class="absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                    <div class="px-3 py-1.5 border-b border-slate-100">
+                      <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Trocar de Perfil</p>
+                      <p class="text-[10px] text-slate-500">Selecione quem está usando o app agora</p>
+                    </div>
+
+                    <div class="max-h-60 overflow-y-auto">
+                      @for (m of service.moradores(); track m.id) {
+                        <button
+                          type="button"
+                          (click)="selecionarMorador(m)"
+                          class="w-full flex items-center space-x-3 px-3 py-2.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors cursor-pointer text-left"
+                          [class.bg-blue-50]="m.id === ativo.id"
+                          [class.text-blue-700]="m.id === ativo.id"
+                          [class.font-bold]="m.id === ativo.id"
+                        >
+                          <img
+                            [src]="m.avatarUrl || 'https://ui-avatars.com/api/?name=' + m.nome"
+                            [alt]="m.nome"
+                            class="w-6 h-6 rounded-full object-cover"
+                          />
+                          <span class="flex-1 truncate">{{ m.nome }}</span>
+                          @if (m.id === ativo.id) {
+                            <span class="text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded-full font-semibold">Ativo</span>
+                          }
+                        </button>
                       }
-                    </button>
-                  }
-                  <div class="border-t border-slate-100 mt-1 pt-1">
-                    <button
-                      type="button"
-                      (click)="service.abrirModalMembros()"
-                      class="w-full flex items-center space-x-2 px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 font-medium"
-                    >
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                      </svg>
-                      <span>Gerenciar Membros</span>
-                    </button>
+                    </div>
+
+                    <div class="border-t border-slate-100 mt-1 pt-1">
+                      <button
+                        type="button"
+                        (click)="abrirModalMembrosEFecharMenu()"
+                        class="w-full flex items-center space-x-2 px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 font-semibold cursor-pointer"
+                      >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span>Gerenciar / Novo Membro</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                }
               </div>
             } @else {
               <button
                 type="button"
                 (click)="service.abrirModalMembros()"
-                class="inline-flex items-center px-3 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-colors"
+                class="inline-flex items-center px-3 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
               >
                 <svg class="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -138,8 +155,23 @@ import { Morador } from '../../models/cleanup.model';
 })
 export class HeaderComponent {
   service = inject(CleanupService);
+  menuPerfisAberto = signal(false);
+
+  alternarMenuPerfis(): void {
+    this.menuPerfisAberto.update(v => !v);
+  }
+
+  fecharMenuPerfis(): void {
+    this.menuPerfisAberto.set(false);
+  }
 
   selecionarMorador(morador: Morador): void {
     this.service.setMoradorAtivo(morador);
+    this.fecharMenuPerfis();
+  }
+
+  abrirModalMembrosEFecharMenu(): void {
+    this.fecharMenuPerfis();
+    this.service.abrirModalMembros();
   }
 }

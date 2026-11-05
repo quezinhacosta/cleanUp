@@ -1,46 +1,61 @@
-# CleanUp 🧹✨
+# CleanUp
 
-Aplicação web moderna para gerenciar e monitorar a escala de limpeza de apartamentos compartilhados. O objetivo primordial do **CleanUp** é garantir **transparência total** e eliminar o desfalque nas tarefas: quem fez o que, qual tarefa foi realizada, em qual data e no horário exato com precisão de segundos.
+Aplicacao web para gerenciar e monitorar a escala de limpeza de apartamentos compartilhados. O objetivo do CleanUp e garantir transparencia total e eliminar o desfalque nas tarefas: registrar quem realizou cada tarefa, em qual data e no horario exato com precisao de segundos.
 
----
-
-## 🚀 Tecnologias Utilizadas
-
-- **Angular 21** (Componentes 100% Standalone, controle de fluxo `@if`, `@for`, `@switch`)
-- **Angular Signals** (`signal`, `computed`, `effect`) para gerenciamento reativo e performático de estado
-- **Tailwind CSS v3** com design clean, luminoso (*Light Mode* moderno) e paleta em Slate, Azul Real (`blue-600`) e Verde Esmeralda (`emerald-500`)
-- **Vitest** como test runner nativo de altíssima velocidade
-- **LocalStorage API** com hidratação automática para persistência dos dados entre sessões
+Desenvolvido por Quezia Costa.
 
 ---
 
-## 📱 Módulos & Estrutura da Aplicação
+## Tecnologias Utilizadas
 
-1. **Header / Navbar:**
-   - Logotipo CleanUp com badge pulsante de *"Plantão Ativo"*.
-   - Seletor de morador ativo (*"Registrando como: Lucas Silva ▾"*), permitindo simular e alternar quem está concluindo a tarefa.
-
-2. **A. Painel do Responsável da Semana (CleanUp Dashboard):**
-   - Card em destaque com avatar, nome, intervalo de datas (`03/11 a 09/11`) e badge de status (`PENDENTE`, `EM_ANDAMENTO`, `CONCLUIDO`).
-   - Indicador visual dinâmico com barra de progresso e porcentagem de tarefas executadas.
-   - Ação rápida para *"Avançar Rodízio"* ou *"Reiniciar Ciclo"*.
-
-3. **B. Checklist de Tarefas da Semana:**
-   - Lista interativa categorizada por cômodos: *Cozinha*, *Banheiro*, *Sala*, *Área Comum*, *Varanda*.
-   - Filtro rápido por cômodo em pills horizontais.
-   - Conclusão com 1 clique gerando carimbo de auditoria em tempo real.
-   - Modal para cadastro rápido de novas tarefas personalizadas.
-
-4. **C. Feed / Histórico de Atividades (Log de Transparência):**
-   - Tabela e feed com registros imutáveis: `[Morador]` + `[Tarefa Realizada]` + `[Data]` + `[Hora precisa (HH:mm:ss)]`.
-   - Filtro instantâneo por morador ou por busca textual de tarefa.
-
-5. **D. Visão da Escala de Rodízio:**
-   - Sequência cronológica das próximas semanas com seus respectivos moradores responsáveis e datas de início/fim.
+- Angular (versao atualizada, componentes 100% Standalone)
+- Angular Signals (signal, computed, effect) para gerenciamento reativo de estado
+- Tailwind CSS com design clean, luminoso e responsivo (mobile-first)
+- jsPDF e jspdf-autotable para geracao e download de relatorios individuais e gerais em PDF
+- Vitest para testes unitarios automatizados
+- LocalStorage com hidratacao automatica para persistencia local de dados
 
 ---
 
-## 📦 Modelos de Dados (`src/app/models/cleanup.model.ts`)
+## Modulos e Recursos da Aplicacao
+
+1. Barra de Navegacao e Selecao de Perfil:
+   - Identificacao visual do sistema e badge de status do plantao.
+   - Menu suspenso interativo para alternar rapidamente entre moradores cadastrados.
+   - Acesso direto ao gerenciamento de membros.
+
+2. Seletor Rapido de Perfil:
+   - Barra horizontal interativa permitindo alternar quem esta realizando as tarefas no momento com um unico clique ou toque.
+
+3. Painel do Responsavel da Semana (Dashboard):
+   - Card em destaque com o morador em plantao na semana atual, periodo de vigencia e status do ciclo (Pendente, Em Andamento, Concluido).
+   - Barra de progresso visual com porcentagem de conclusao das tarefas.
+   - Botoes para avancar o rodizio semanal ou reiniciar o ciclo atual.
+
+4. Checklist de Tarefas:
+   - Lista baseada nas tarefas principais: Limpar Sala, Limpar Corredor, Limpar Banheiro, Limpar Cozinha e Limpar Area de Servico.
+   - Liberdade total para o usuario cadastrar novas tarefas personalizadas ou remover tarefas existentes.
+   - Filtro dinamico por comodo ou setor.
+   - Marcacao de conclusao com carimbo automatico de data e horario exato (HH:mm:ss).
+
+5. Feed e Historico de Atividades (Log de Transparencia):
+   - Tabela cronologica com layout responsivo e protecao contra quebras de linha.
+   - Exibicao obrigatoria de: [Morador] + [Tarefa Realizada] + [Data] + [Hora precisa (HH:mm:ss)].
+   - Filtro rapido por morador e busca textual por tarefa.
+   - Exportacao de relatorios em formato PDF para qualquer integrante ou consolidados para todo o apartamento.
+
+6. Visao da Escala de Rodizio:
+   - Grade cronologica das semanas subsequentes com sequencia justa de revezamento.
+   - Atualizacao e redistribuicao automatica dos ciclos ao adicionar ou remover membros.
+
+7. Gerenciamento de Membros:
+   - Modal para cadastrar novos moradores com geracao automatica de avatar ou foto personalizada.
+   - Opcao de exclusao com readequacao automatica do rodizio.
+   - Botao individual para download de relatorio em PDF diretamente no modal.
+
+---
+
+## Modelos de Dados (src/app/models/cleanup.model.ts)
 
 ```typescript
 export interface Morador {
@@ -52,7 +67,7 @@ export interface Morador {
 export interface Tarefa {
   id: string;
   titulo: string;
-  comodo: 'Cozinha' | 'Banheiro' | 'Sala' | 'Área Comum' | 'Varanda';
+  comodo: 'Cozinha' | 'Banheiro' | 'Sala' | 'Corredor' | 'Área de Serviço' | 'Área Comum' | 'Varanda' | string;
   concluida: boolean;
 }
 
@@ -61,7 +76,7 @@ export interface RegistroLimpeza {
   moradorId: string;
   moradorNome: string;
   tarefaNome: string;
-  dataHora: Date; // Data e hora exata da marcação
+  dataHora: Date;
 }
 
 export interface EscalaSemana {
@@ -75,43 +90,27 @@ export interface EscalaSemana {
 
 ---
 
-## 🛠️ Como Executar o Projeto
+## Instrucoes de Execucao
 
+Para instalar dependencias (caso necessario):
 ```bash
-# 1. Acesse o diretório do projeto
 cd cleanUp
-
-# 2. Inicie o servidor de desenvolvimento
-npm start
-# ou: ng serve
-
-# 3. Acesse no navegador:
-# http://localhost:4200
+npm install
 ```
 
----
+Para iniciar o servidor de desenvolvimento:
+```bash
+npm start
+```
+Acesse no navegador pelo endereco: http://localhost:4200
 
-## 🧪 Testes Unitários
-
-O projeto possui 100% de cobertura nos requisitos principais:
-
+Para executar a suite de testes automatizados:
 ```bash
 npm test
 ```
 
-Foram implementados testes automatizados cobrindo:
-- Criação e integridade dos componentes standalone
-- Alternância de tarefas e geração automática de registro com carimbo `Date` e `HH:mm:ss`
-- Cálculo de porcentagem do ciclo
-- Filtros por morador e por tarefa no histórico
-- Adição e remoção de tarefas
-- Rotação e avanço da escala de rodízio
-
----
-
-## 🏗️ Build de Produção
-
+Para gerar a build de producao otimizada:
 ```bash
 npm run build
 ```
-Os arquivos otimizados serão gerados na pasta `dist/cleanUp`.
+Os artefatos compilados serao gerados no diretorio dist/cleanUp.
