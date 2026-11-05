@@ -136,7 +136,7 @@ import { EscalaSemana, Morador } from '../../models/cleanup.model';
                     [class.bg-slate-100]="i > 0"
                     [class.text-slate-600]="i > 0"
                   >
-                    {{ i === 0 ? 'Semana Atual' : 'Semana ' + (i + 1) }}
+                    Semana {{ i + 1 }}
                   </span>
 
                   @if (i > 0) {
@@ -292,13 +292,10 @@ import { EscalaSemana, Morador } from '../../models/cleanup.model';
               </div>
             </div>
 
-            <!-- Rodapé do Card: Datas -->
-            <div class="pt-3 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
-              <span class="flex items-center text-[11px]">
-                <svg class="w-3.5 h-3.5 mr-1 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                {{ formatarDataCurta(semana.dataInicio) }} - {{ formatarDataCurta(semana.dataFim) }}
+            <!-- Rodapé do Card -->
+            <div class="pt-3 border-t border-slate-100 text-xs flex items-center justify-between">
+              <span class="text-[11px] font-medium text-slate-400">
+                {{ i === 0 ? 'Plantão em vigor' : 'Próximo revezamento' }}
               </span>
 
               @if (semanaHover() === semana.semanaId) {

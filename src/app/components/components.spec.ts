@@ -207,7 +207,7 @@ describe('CleanUp Components Test Suite', () => {
       service.adicionarMorador('Quezia Costa');
       fixture.detectChanges();
       compiled = fixture.nativeElement as HTMLElement;
-      expect(compiled.textContent).toContain('Semana Atual');
+      expect(compiled.textContent).toContain('Semana 1');
       expect(compiled.textContent).toContain('Quezia Costa');
     });
 

@@ -99,10 +99,10 @@ import { EscalaSemana } from '../../models/cleanup.model';
               </h2>
 
               <p class="text-xs sm:text-sm text-slate-500 flex items-center mt-0.5">
-                <svg class="w-4 h-4 mr-1 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <svg class="w-4 h-4 mr-1 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
-                Período: <span class="font-medium text-slate-700 ml-1">{{ formatarPeriodo(semana.dataInicio, semana.dataFim) }}</span>
+                <span class="font-medium text-slate-700">Semana 1</span><span class="mx-1.5 text-slate-300">&bull;</span><span>Plantão em vigor</span>
               </p>
             </div>
           </div>
