@@ -28,29 +28,29 @@ import { EscalaSemana, Morador } from '../../models/cleanup.model';
         </div>
 
         <!-- Botões de Ação da Escala -->
-        <div class="flex items-center gap-2 self-start sm:self-auto">
+        <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             type="button"
             (click)="service.redefinirEscala()"
-            class="inline-flex items-center text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"
+            class="flex-1 sm:flex-none inline-flex items-center justify-center text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"
             title="Redistribuir moradores automaticamente em ciclo equilibrado"
           >
             <svg class="w-3.5 h-3.5 mr-1.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Equilibrar Rodízio
+            <span>Equilibrar</span>
           </button>
 
           <button
             type="button"
             (click)="service.adicionarSemanaNaEscala()"
-            class="inline-flex items-center text-xs font-semibold text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors border border-blue-200"
+            class="flex-1 sm:flex-none inline-flex items-center justify-center text-xs font-semibold text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors border border-blue-200"
             title="Adicionar mais uma semana à escala"
           >
             <svg class="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
-            + Nova Semana
+            <span>+ Nova Semana</span>
           </button>
         </div>
       </div>
@@ -143,7 +143,7 @@ import { EscalaSemana, Morador } from '../../models/cleanup.model';
                     <button
                       type="button"
                       (click)="removerSemana(semana.semanaId)"
-                      class="text-slate-300 hover:text-red-500 p-0.5 rounded transition-colors opacity-0 group-hover:opacity-100"
+                      class="text-slate-300 hover:text-red-500 p-0.5 rounded transition-colors opacity-70 sm:opacity-0 sm:group-hover:opacity-100"
                       title="Excluir esta semana da escala"
                     >
                       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

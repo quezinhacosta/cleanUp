@@ -63,7 +63,7 @@ import { Morador } from '../../models/cleanup.model';
                 />
               </div>
 
-              <div class="flex items-center justify-between pt-1">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
                 <span class="text-[11px] text-slate-500">
                   O rodízio da escala é atualizado automaticamente ao adicionar.
                 </span>
@@ -71,7 +71,7 @@ import { Morador } from '../../models/cleanup.model';
                   type="button"
                   (click)="adicionar()"
                   [disabled]="!novoNome.trim()"
-                  class="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl shadow-xs transition-colors"
+                  class="w-full sm:w-auto text-center px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl shadow-xs transition-colors shrink-0"
                 >
                   Adicionar Membro
                 </button>
