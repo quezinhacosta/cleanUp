@@ -440,7 +440,7 @@ describe('CleanUp Components Test Suite', () => {
       expect(compiled.textContent).toContain('Tarefa antiga excluída');
 
       const comp = fixture.componentInstance;
-      comp.setFiltro('INCLUSAO');
+      comp.filtroTipo.set('INCLUSAO');
       fixture.detectChanges();
 
       expect(comp.acoesFiltradas().length).toBe(1);
