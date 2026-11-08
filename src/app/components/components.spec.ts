@@ -94,7 +94,8 @@ describe('CleanUp Components Test Suite', () => {
 
     it('deve renderizar o card do responsável da semana e progresso após adicionar morador', () => {
       const service = TestBed.inject(CleanupService);
-      service.adicionarMorador('Quezia Costa');
+      const m1 = service.adicionarMorador('Quezia Costa');
+      service.adicionarMoradorNaSemana(service.escala()[0].semanaId, m1.id);
 
       const fixture = TestBed.createComponent(DashboardResumoComponent);
       fixture.detectChanges();
@@ -110,6 +111,7 @@ describe('CleanUp Components Test Suite', () => {
       const m1 = service.adicionarMorador('Quezia Costa');
       const m2 = service.adicionarMorador('Lucas Silva');
       const sem1 = service.escala()[0];
+      service.adicionarMoradorNaSemana(sem1.semanaId, m1.id);
       service.adicionarMoradorNaSemana(sem1.semanaId, m2.id);
 
       const fixture = TestBed.createComponent(DashboardResumoComponent);
@@ -264,6 +266,7 @@ describe('CleanUp Components Test Suite', () => {
       const comp = fixture.componentInstance;
 
       const sem1 = service.escala()[0];
+      service.adicionarMoradorNaSemana(sem1.semanaId, m1.id);
 
       // Alterna menu de escalar
       comp.alternarMenuEscalar(sem1.semanaId);
@@ -283,6 +286,7 @@ describe('CleanUp Components Test Suite', () => {
 
       // Remove morador da semana
       service.adicionarMoradorNaSemana(sem1.semanaId, m1.id);
+      expect(service.escala()[0].responsaveis.length).toBe(1);
       comp.removerMorador(sem1.semanaId, m1.id);
       expect(service.escala()[0].responsaveis.length).toBe(0);
     });

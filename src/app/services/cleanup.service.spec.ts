@@ -32,25 +32,29 @@ describe('CleanupService', () => {
     expect(titulos).toContain('Limpar Área de Serviço');
   });
 
-  it('deve permitir adicionar novos membros e gerar o rodízio da escala dinamicamente', () => {
+  it('deve permitir adicionar novos membros e não preencher as semanas automaticamente', () => {
     const m1 = service.adicionarMorador('Quezia Costa');
     expect(service.moradores().length).toBe(1);
     expect(service.moradorAtivo()?.nome).toBe('Quezia Costa');
     expect(service.escala().length).toBe(1);
-    expect(service.semanaAtual()?.responsaveis[0]?.nome).toBe('Quezia Costa');
+    expect(service.semanaAtual()?.responsaveis.length).toBe(0);
 
     const m2 = service.adicionarMorador('Carlos Souza');
     expect(service.moradores().length).toBe(2);
     expect(service.escala().length).toBe(2);
-    // Escala deve alternar entre Quezia e Carlos
-    expect(service.escala()[0].responsaveis[0]?.nome).toBe('Quezia Costa');
-    expect(service.escala()[1].responsaveis[0]?.nome).toBe('Carlos Souza');
+    // As semanas não devem ser preenchidas automaticamente
+    expect(service.escala()[0].responsaveis.length).toBe(0);
+    expect(service.escala()[1].responsaveis.length).toBe(0);
   });
 
-  it('deve alternar o rodízio de forma estritamente rotativa entre múltiplos moradores ao avançar', () => {
+  it('deve alternar o rodízio entre múltiplos moradores escalados ao avançar', () => {
     const m1 = service.adicionarMorador('Quezia Costa');
     const m2 = service.adicionarMorador('Carlos Souza');
     const m3 = service.adicionarMorador('Ana Lima');
+
+    service.adicionarMoradorNaSemana(service.escala()[0].semanaId, m1.id);
+    service.adicionarMoradorNaSemana(service.escala()[1].semanaId, m2.id);
+    service.adicionarMoradorNaSemana(service.escala()[2].semanaId, m3.id);
 
     expect(service.semanaAtual()?.responsaveis[0]?.nome).toBe('Quezia Costa');
 
@@ -75,10 +79,12 @@ describe('CleanupService', () => {
     const m2 = service.adicionarMorador('Membro 2');
     expect(service.moradores().length).toBe(2);
 
+    service.adicionarMoradorNaSemana(service.escala()[0].semanaId, m1.id);
+    service.adicionarMoradorNaSemana(service.escala()[1].semanaId, m2.id);
+
     service.removerMorador(m1.id);
     expect(service.moradores().length).toBe(1);
     expect(service.moradorAtivo()?.id).toBe(m2.id);
-    expect(service.semanaAtual()?.responsaveis[0]?.id).toBe(m2.id);
 
     service.removerMorador(m2.id);
     expect(service.moradores().length).toBe(0);
@@ -95,7 +101,7 @@ describe('CleanupService', () => {
     const sem1 = escalaInicial[0];
     const sem2 = escalaInicial[1];
 
-    // Adiciona Carlos também na semana 1 (múltiplos moradores)
+    service.adicionarMoradorNaSemana(sem1.semanaId, m1.id);
     service.adicionarMoradorNaSemana(sem1.semanaId, m2.id);
     const sem1Atualizada = service.escala().find(s => s.semanaId === sem1.semanaId);
     expect(sem1Atualizada?.responsaveis.length).toBe(2);
