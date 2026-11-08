@@ -55,17 +55,6 @@ import { Morador } from '../../models/cleanup.model';
                 />
               </div>
 
-              <div>
-                <label class="block text-sm font-bold text-slate-700 mb-1.5">URL da Foto (opcional)</label>
-                <input
-                  type="url"
-                  [(ngModel)]="novoAvatar"
-                  placeholder="https://... (deixe vazio para avatar automático)"
-                  (keyup.enter)="solicitarAdicionar()"
-                  class="w-full text-base px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                />
-              </div>
-
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
                 <span class="text-xs text-slate-500">
                   O rodízio é atualizado automaticamente.
