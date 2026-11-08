@@ -28,3 +28,35 @@ export interface EscalaSemana {
   status: 'PENDENTE' | 'EM_ANDAMENTO' | 'CONCLUIDO';
 }
 
+/**
+ * Histórico de Ações Administrativas e Cadastrais do CleanUp
+ * (Completamente separado do histórico de limpeza de tarefas)
+ */
+export interface AcaoSistema {
+  id: string;
+  tipo: 'INCLUSAO' | 'EXCLUSAO' | 'ALTERACAO' | 'SISTEMA';
+  descricao: string;
+  autorNome?: string;
+  dataHora: Date;
+}
+
+/**
+ * Modelo para Solicitação de Confirmação Visual
+ */
+export interface PedidoConfirmacao {
+  titulo: string;
+  mensagem: string;
+  tipo: 'incluir' | 'excluir' | 'aviso';
+  textoBotaoConfirmar?: string;
+  acaoConfirmar: () => void;
+}
+
+/**
+ * Modelo para Toast de Feedback Visual
+ */
+export interface ToastNotificacao {
+  id: string;
+  tipo: 'sucesso' | 'erro' | 'info' | 'aviso';
+  titulo?: string;
+  mensagem: string;
+}

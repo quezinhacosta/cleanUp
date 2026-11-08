@@ -6,6 +6,8 @@ import { HistoricoAtividadesComponent } from './historico-atividades/historico-a
 import { EscalaRodizioComponent } from './escala-rodizio/escala-rodizio.component';
 import { GerenciarMembrosComponent } from './gerenciar-membros/gerenciar-membros.component';
 import { SeletorPerfilComponent } from './seletor-perfil/seletor-perfil.component';
+import { ModalConfirmacaoComponent } from './modal-confirmacao/modal-confirmacao.component';
+import { HistoricoAcoesComponent } from './historico-acoes/historico-acoes.component';
 import { CleanupService } from '../services/cleanup.service';
 
 describe('CleanUp Components Test Suite', () => {
@@ -19,7 +21,9 @@ describe('CleanUp Components Test Suite', () => {
         HistoricoAtividadesComponent,
         EscalaRodizioComponent,
         GerenciarMembrosComponent,
-        SeletorPerfilComponent
+        SeletorPerfilComponent,
+        ModalConfirmacaoComponent,
+        HistoricoAcoesComponent
       ],
       providers: [CleanupService]
     }).compileComponents();
@@ -369,6 +373,111 @@ describe('CleanUp Components Test Suite', () => {
       // 3. Remove morador do dia
       comp.removerMoradorDoDia(dataDestino, m2.id);
       expect(service.obterMoradoresDoDia(dataDestino).some(m => m.id === m2.id)).toBe(false);
+    });
+  });
+
+  describe('ModalConfirmacaoComponent', () => {
+    it('deve exibir modal quando houver confirmacaoPendente e disparar callback ao confirmar', () => {
+      const service = TestBed.inject(CleanupService);
+      const fixture = TestBed.createComponent(ModalConfirmacaoComponent);
+      fixture.detectChanges();
+
+      // Inicialmente oculto
+      expect(fixture.nativeElement.textContent).not.toContain('Tem certeza');
+
+      let executou = false;
+      service.solicitarConfirmacao({
+        titulo: 'Excluir Item',
+        mensagem: 'Tem certeza que deseja excluir este item?',
+        tipo: 'excluir',
+        textoBotaoConfirmar: 'Sim, excluir',
+        acaoConfirmar: () => { executou = true; }
+      });
+
+      fixture.detectChanges();
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('Excluir Item');
+      expect(compiled.textContent).toContain('Tem certeza que deseja excluir');
+
+      // Clica em confirmar
+      service.confirmarAcao();
+      expect(executou).toBe(true);
+      expect(service.confirmacaoPendente()).toBeNull();
+    });
+
+    it('deve fechar modal sem executar ação ao cancelar', () => {
+      const service = TestBed.inject(CleanupService);
+      const fixture = TestBed.createComponent(ModalConfirmacaoComponent);
+
+      let executou = false;
+      service.solicitarConfirmacao({
+        titulo: 'Incluir Tarefa',
+        mensagem: 'Tem certeza que deseja incluir?',
+        tipo: 'incluir',
+        acaoConfirmar: () => { executou = true; }
+      });
+
+      fixture.detectChanges();
+      service.cancelarConfirmacao();
+      fixture.detectChanges();
+
+      expect(executou).toBe(false);
+      expect(service.confirmacaoPendente()).toBeNull();
+    });
+  });
+
+  describe('HistoricoAcoesComponent', () => {
+    it('deve listar as ações do sistema e permitir filtrar por tipo', () => {
+      const service = TestBed.inject(CleanupService);
+      service.registrarAcaoSistema('INCLUSAO', 'Morador Maria inserido');
+      service.registrarAcaoSistema('EXCLUSAO', 'Tarefa antiga excluída');
+
+      const fixture = TestBed.createComponent(HistoricoAcoesComponent);
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('Morador Maria inserido');
+      expect(compiled.textContent).toContain('Tarefa antiga excluída');
+
+      const comp = fixture.componentInstance;
+      comp.setFiltro('INCLUSAO');
+      fixture.detectChanges();
+
+      expect(comp.acoesFiltradas().length).toBe(1);
+      expect(comp.acoesFiltradas()[0].descricao).toBe('Morador Maria inserido');
+    });
+  });
+
+  describe('Regra de Exclusão de Morador e Limpeza Total', () => {
+    it('deve apagar todo o histórico de atividades e dias da escala quando morador for removido', () => {
+      const service = TestBed.inject(CleanupService);
+      const m1 = service.adicionarMorador('Ana Silva');
+      const m2 = service.adicionarMorador('Bruno Dias');
+
+      // Registra atividades de limpeza para Ana
+      service.alternarTarefa(service.tarefas()[0].id, m1);
+      expect(service.historico().some(h => h.moradorId === m1.id)).toBe(true);
+
+      // Atribui Ana para um dia específico
+      service.atribuirMoradorAoDia('2026-11-15', m1.id);
+      expect(service.obterMoradoresDoDia('2026-11-15').some(m => m.id === m1.id)).toBe(true);
+
+      // Remove Ana
+      service.removerMorador(m1.id);
+
+      // Verifica que nada de Ana restou no histórico de limpeza nem nos dias da escala
+      expect(service.historico().some(h => h.moradorId === m1.id)).toBe(false);
+      expect(service.obterMoradoresDoDia('2026-11-15').some(m => m.id === m1.id)).toBe(false);
+      expect(service.moradores().some(m => m.id === m1.id)).toBe(false);
+    });
+
+    it('não deve exibir botão de Limpar no Histórico de Atividades', () => {
+      const fixture = TestBed.createComponent(HistoricoAtividadesComponent);
+      fixture.detectChanges();
+      const compiled = fixture.nativeElement as HTMLElement;
+      const buttons = Array.from(compiled.querySelectorAll('button')).map(b => b.textContent?.trim());
+
+      expect(buttons.some(txt => txt === 'Limpar' || txt === 'Limpar Histórico')).toBe(false);
     });
   });
 });

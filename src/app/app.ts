@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { CleanupService } from './services/cleanup.service';
 import { HeaderComponent } from './components/header/header.component';
 import { DashboardResumoComponent } from './components/dashboard-resumo/dashboard-resumo.component';
 import { ChecklistTarefasComponent } from './components/checklist-tarefas/checklist-tarefas.component';
@@ -7,6 +8,8 @@ import { HistoricoAtividadesComponent } from './components/historico-atividades/
 import { EscalaRodizioComponent } from './components/escala-rodizio/escala-rodizio.component';
 import { GerenciarMembrosComponent } from './components/gerenciar-membros/gerenciar-membros.component';
 import { SeletorPerfilComponent } from './components/seletor-perfil/seletor-perfil.component';
+import { ModalConfirmacaoComponent } from './components/modal-confirmacao/modal-confirmacao.component';
+import { HistoricoAcoesComponent } from './components/historico-acoes/historico-acoes.component';
 
 @Component({
   selector: 'app-root',
@@ -19,9 +22,13 @@ import { SeletorPerfilComponent } from './components/seletor-perfil/seletor-perf
     ChecklistTarefasComponent,
     HistoricoAtividadesComponent,
     EscalaRodizioComponent,
-    GerenciarMembrosComponent
+    GerenciarMembrosComponent,
+    ModalConfirmacaoComponent,
+    HistoricoAcoesComponent
   ],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
-export class App {}
+export class App {
+  service = inject(CleanupService);
+}

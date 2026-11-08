@@ -1,5 +1,5 @@
 import { Injectable, signal, computed, effect } from '@angular/core';
-import { Morador, Tarefa, RegistroLimpeza, EscalaSemana } from '../models/cleanup.model';
+import { Morador, Tarefa, RegistroLimpeza, EscalaSemana, AcaoSistema, PedidoConfirmacao, ToastNotificacao } from '../models/cleanup.model';
 import { supabase } from '../supabaseclient';
 
 const STORAGE_KEY_MORADORES = 'cleanup_moradores';
@@ -8,6 +8,7 @@ const STORAGE_KEY_HISTORICO = 'cleanup_historico';
 const STORAGE_KEY_ESCALA = 'cleanup_escala';
 const STORAGE_KEY_MORADOR_ATIVO = 'cleanup_morador_ativo';
 const STORAGE_KEY_ESCALA_DIAS = 'cleanup_escala_dias';
+const STORAGE_KEY_HISTORICO_ACOES = 'cleanup_historico_acoes';
 
 @Injectable({
   providedIn: 'root'
@@ -28,6 +29,15 @@ export class CleanupService {
   readonly tarefas = signal<Tarefa[]>(this.carregarTarefas());
   readonly historico = signal<RegistroLimpeza[]>(this.carregarHistorico());
   readonly moradorAtivo = signal<Morador | null>(this.carregarMoradorAtivo());
+
+  // Histórico de Ações Administrativas e de Sistema (separado do histórico de limpeza)
+  readonly historicoAcoes = signal<AcaoSistema[]>(this.carregarHistoricoAcoes());
+
+  // Controle de Notificações de Confirmação (Modal de confirmação antes de ações)
+  readonly confirmacaoPendente = signal<PedidoConfirmacao | null>(null);
+
+  // Sistema de Toasts Visuais para Feedback Imediato
+  readonly toasts = signal<ToastNotificacao[]>([]);
 
   // Mapa de atribuições específicas por dia (YYYY-MM-DD -> id dos moradores)
   readonly escalaDias = signal<Record<string, string[]>>(this.carregarEscalaDias());
@@ -110,6 +120,7 @@ export class CleanupService {
         localStorage.setItem(STORAGE_KEY_ESCALA_DIAS, JSON.stringify(this.escalaDias()));
         localStorage.setItem(STORAGE_KEY_TAREFAS, JSON.stringify(this.tarefas()));
         localStorage.setItem(STORAGE_KEY_HISTORICO, JSON.stringify(this.historico()));
+        localStorage.setItem(STORAGE_KEY_HISTORICO_ACOES, JSON.stringify(this.historicoAcoes()));
         const ativo = this.moradorAtivo();
         if (ativo) {
           localStorage.setItem(STORAGE_KEY_MORADOR_ATIVO, JSON.stringify(ativo));
@@ -205,18 +216,30 @@ export class CleanupService {
     this.inserirMoradorNoSupabase(novo);
     this.persistirEscalaNoSupabase();
 
+    // Registra ação no Histórico do Sistema e exibe feedback visual
+    this.registrarAcaoSistema('INCLUSAO', `Morador(a) "${novo.nome}" foi incluído(a) na escala do CleanUp.`);
+    this.exibirToast(`Morador(a) "${novo.nome}" cadastrado(a) com sucesso!`, 'sucesso');
+
     return novo;
   }
 
   removerMorador(id: string): void {
+    const moradorRemovido = this.moradores().find(m => m.id === id);
     const novosMoradores = this.moradores().filter(m => m.id !== id);
     this.moradores.set(novosMoradores);
+
+    // REGRA 1: Sempre que uma pessoa sair, TUDO sobre ela é apagado do histórico e das tarefas
+    this.historico.update(lista => lista.filter(reg => reg.moradorId !== id));
+    this.safeRun(supabase.from('historico_limpeza').delete().eq('morador_id', id));
 
     if (novosMoradores.length === 0) {
       this.moradorAtivo.set(null);
       this.escala.set([]);
+      this.escalaDias.set({});
       this.excluirMoradorDoSupabase(id);
       this.persistirEscalaNoSupabase();
+      this.registrarAcaoSistema('EXCLUSAO', `Morador(a) "${moradorRemovido?.nome || 'Membro'}" foi excluído(a) e todos os registros foram apagados.`);
+      this.exibirToast(`Morador(a) "${moradorRemovido?.nome || 'Membro'}" e todos os seus dados foram excluídos.`, 'aviso');
       return;
     }
 
@@ -265,6 +288,10 @@ export class CleanupService {
 
     this.excluirMoradorDoSupabase(id);
     this.persistirEscalaNoSupabase();
+
+    // Registra ação no Histórico do Sistema e exibe feedback visual
+    this.registrarAcaoSistema('EXCLUSAO', `Morador(a) "${moradorRemovido?.nome || 'Membro'}" foi excluído(a) e todos os seus registros foram apagados.`);
+    this.exibirToast(`Morador(a) "${moradorRemovido?.nome || 'Membro'}" e todos os seus dados foram excluídos.`, 'aviso');
   }
 
   gerarEscalaParaMoradores(moradores: Morador[]): EscalaSemana[] {
@@ -632,6 +659,14 @@ export class CleanupService {
     }));
   }
 
+  nomeDoMes(mes: number): string {
+    const meses = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    return meses[mes] || '';
+  }
+
   limparMes(ano: number, mes: number): void {
     const diasNoMes = new Date(ano, mes + 1, 0).getDate();
     const mapaAtual = { ...this.escalaDias() };
@@ -640,6 +675,9 @@ export class CleanupService {
       mapaAtual[dataIso] = [];
     }
     this.escalaDias.set(mapaAtual);
+
+    this.registrarAcaoSistema('EXCLUSAO', `Plantões do mês de ${this.nomeDoMes(mes)} de ${ano} foram limpos.`);
+    this.exibirToast(`Plantões de ${this.nomeDoMes(mes)} foram limpos.`, 'aviso');
   }
 
   obterSemanasDoMes(ano: number, mes: number): EscalaSemana[] {
@@ -670,6 +708,9 @@ export class CleanupService {
       }
       return novo;
     });
+
+    this.registrarAcaoSistema('ALTERACAO', `Escala do mês de ${this.nomeDoMes(targetMes)} foi redistribuída e equilibrada.`);
+    this.exibirToast(`Escala de ${this.nomeDoMes(targetMes)} equilibrada com sucesso!`, 'sucesso');
   }
 
   adicionarSemanaNoMes(ano: number, mes: number): void {
@@ -706,6 +747,9 @@ export class CleanupService {
     this.atualizarTarefaNoSupabase(tarefaId, novoEstado);
     if (novoRegistro) {
       this.inserirHistoricoNoSupabase(novoRegistro);
+      this.exibirToast(`Tarefa "${tarefaAlvo.titulo}" concluída por ${morador?.nome}!`, 'sucesso');
+    } else {
+      this.exibirToast(`Tarefa "${tarefaAlvo.titulo}" desmarcada.`, 'info');
     }
   }
 
@@ -721,11 +765,20 @@ export class CleanupService {
 
     this.tarefas.update(lista => [...lista, nova]);
     this.inserirTarefaNoSupabase(nova);
+
+    this.registrarAcaoSistema('INCLUSAO', `Nova tarefa "${nova.titulo}" incluída no cômodo ${comodo}.`);
+    this.exibirToast(`Tarefa "${nova.titulo}" incluída com sucesso!`, 'sucesso');
   }
 
   removerTarefa(tarefaId: string): void {
+    const tarefaAlvo = this.tarefas().find(t => t.id === tarefaId);
     this.tarefas.update(lista => lista.filter(t => t.id !== tarefaId));
     this.excluirTarefaDoSupabase(tarefaId);
+
+    if (tarefaAlvo) {
+      this.registrarAcaoSistema('EXCLUSAO', `Tarefa "${tarefaAlvo.titulo}" (${tarefaAlvo.comodo}) foi excluída.`);
+      this.exibirToast(`Tarefa "${tarefaAlvo.titulo}" excluída com sucesso.`, 'aviso');
+    }
   }
 
   reiniciarCicloSemanal(): void {
@@ -805,15 +858,73 @@ export class CleanupService {
 
     this.resetarTarefasNoSupabase();
     this.persistirEscalaNoSupabase();
+
+    const novoResponsavel = this.semanaAtual()?.responsaveis[0]?.nome || 'Membro';
+    this.registrarAcaoSistema('ALTERACAO', `Ciclo semanal avançado. Responsável da semana: ${novoResponsavel}.`);
+    this.exibirToast(`Semana avançada! Responsável atual: ${novoResponsavel}`, 'info');
   }
 
   limparHistorico(): void {
     this.historico.set([]);
     this.limparHistoricoNoSupabase();
+    this.registrarAcaoSistema('EXCLUSAO', 'Histórico de tarefas de limpeza foi esvaziado.');
+  }
+
+  // CONTROLE DE CONFIRMAÇÕES VISUAIS (REGRA 2)
+  solicitarConfirmacao(pedido: PedidoConfirmacao): void {
+    this.confirmacaoPendente.set(pedido);
+  }
+
+  confirmarAcao(): void {
+    const pedido = this.confirmacaoPendente();
+    if (pedido) {
+      pedido.acaoConfirmar();
+    }
+    this.confirmacaoPendente.set(null);
+  }
+
+  cancelarConfirmacao(): void {
+    this.confirmacaoPendente.set(null);
+  }
+
+  // CONTROLE DE TOASTS VISUAIS (REGRA 5)
+  exibirToast(mensagem: string, tipo: 'sucesso' | 'erro' | 'info' | 'aviso' = 'sucesso', titulo?: string): void {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const tituloPadrao = titulo || (tipo === 'sucesso' ? 'Sucesso!' : tipo === 'erro' ? 'Erro' : tipo === 'aviso' ? 'Atenção' : 'CleanUp');
+    const novo: ToastNotificacao = { id, tipo, mensagem, titulo: tituloPadrao };
+    this.toasts.update(lista => [...lista, novo]);
+
+    setTimeout(() => {
+      this.removerToast(id);
+    }, 4000);
+  }
+
+  removerToast(id: string): void {
+    this.toasts.update(lista => lista.filter(t => t.id !== id));
+  }
+
+  // REGISTRO DE AÇÕES DO SISTEMA (REGRA 6)
+  registrarAcaoSistema(tipo: AcaoSistema['tipo'], descricao: string, autorNome?: string): void {
+    const autor = autorNome || this.moradorAtivo()?.nome || 'CleanUp';
+    const novaAcao: AcaoSistema = {
+      id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      tipo,
+      descricao,
+      autorNome: autor,
+      dataHora: new Date()
+    };
+    this.historicoAcoes.update(lista => [novaAcao, ...lista]);
+  }
+
+  limparHistoricoAcoes(): void {
+    this.historicoAcoes.set([]);
   }
 
   setMoradorAtivo(morador: Morador | null): void {
     this.moradorAtivo.set(morador);
+    if (morador) {
+      this.exibirToast(`Perfil ativo: ${morador.nome}`, 'info');
+    }
   }
 
   setFiltroMorador(id: string): void {
@@ -1178,6 +1289,20 @@ export class CleanupService {
       return data ? JSON.parse(data) : {};
     } catch {
       return {};
+    }
+  }
+
+  private carregarHistoricoAcoes(): AcaoSistema[] {
+    try {
+      const data = localStorage.getItem(STORAGE_KEY_HISTORICO_ACOES);
+      if (!data) return [];
+      const parsed = JSON.parse(data);
+      return parsed.map((item: any) => ({
+        ...item,
+        dataHora: new Date(item.dataHora)
+      }));
+    } catch {
+      return [];
     }
   }
 

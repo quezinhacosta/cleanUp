@@ -9,21 +9,21 @@ import { Tarefa } from '../../models/cleanup.model';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6 transition-all duration-200 hover:shadow-md">
+    <div class="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 sm:p-6 transition-all duration-200 hover:shadow-md">
       
       <!-- Header do Módulo -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
         <div>
-          <div class="flex items-center space-x-2">
-            <h3 class="text-lg font-bold text-slate-900 tracking-tight flex items-center">
-              <span class="w-2.5 h-2.5 rounded-full bg-blue-600 mr-2"></span>
+          <div class="flex items-center space-x-2.5">
+            <h3 class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight flex items-center">
+              <span class="w-3 h-3 rounded-full bg-blue-600 mr-2.5 shrink-0"></span>
               Checklist de Tarefas da Semana
             </h3>
-            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+            <span class="text-xs sm:text-sm font-bold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
               {{ service.progressoSemana().concluidas }}/{{ service.progressoSemana().total }}
             </span>
           </div>
-          <p class="text-xs text-slate-500 mt-0.5">
+          <p class="text-sm sm:text-base text-slate-500 mt-1">
             Clique na tarefa para registrar a conclusão com carimbo de data e hora
           </p>
         </div>
@@ -32,25 +32,25 @@ import { Tarefa } from '../../models/cleanup.model';
         <button
           type="button"
           (click)="alternarModalAdicionar()"
-          class="inline-flex items-center justify-center px-3.5 py-1.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-xs transition-colors self-start sm:self-auto border border-blue-200"
+          class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-sm sm:text-base transition-all self-start sm:self-auto border border-blue-200 shadow-2xs active:scale-95 cursor-pointer"
         >
-          <svg class="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
           </svg>
           Nova Tarefa
         </button>
       </div>
 
       <!-- Filtro por Cômodo -->
-      <div class="flex items-center gap-1.5 overflow-x-auto py-3 no-scrollbar border-b border-slate-100">
+      <div class="flex items-center gap-2 overflow-x-auto py-3 no-scrollbar border-b border-slate-100">
         @for (comodo of service.comodos(); track comodo) {
           <button
             type="button"
             (click)="service.setFiltroComodo(comodo)"
-            class="px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors"
+            class="px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer"
             [class.bg-blue-600]="service.filtroComodo() === comodo"
             [class.text-white]="service.filtroComodo() === comodo"
-            [class.shadow-xs]="service.filtroComodo() === comodo"
+            [class.shadow-2xs]="service.filtroComodo() === comodo"
             [class.bg-slate-100]="service.filtroComodo() !== comodo"
             [class.text-slate-600]="service.filtroComodo() !== comodo"
             [class.hover:bg-slate-200]="service.filtroComodo() !== comodo"
@@ -64,11 +64,11 @@ import { Tarefa } from '../../models/cleanup.model';
       <div class="divide-y divide-slate-100 mt-2">
         @for (tarefa of service.tarefasFiltradas(); track tarefa.id) {
           <div
-            class="py-3 sm:py-3.5 flex items-center justify-between gap-3 group transition-colors rounded-xl px-2 hover:bg-slate-50/80"
-            [class.opacity-70]="tarefa.concluida"
+            class="py-3.5 sm:py-4 flex items-center justify-between gap-3 group transition-colors rounded-2xl px-2.5 hover:bg-slate-50/90"
+            [class.opacity-75]="tarefa.concluida"
           >
             <!-- Checkbox Customizado + Detalhes -->
-            <label [for]="'tarefa-' + tarefa.id" class="flex items-start sm:items-center space-x-3.5 flex-1 cursor-pointer">
+            <label [for]="'tarefa-' + tarefa.id" class="flex items-start sm:items-center space-x-3.5 flex-1 cursor-pointer select-none">
               <div class="relative flex items-center justify-center mt-0.5 sm:mt-0">
                 <input
                   type="checkbox"
@@ -78,16 +78,17 @@ import { Tarefa } from '../../models/cleanup.model';
                   class="sr-only"
                 />
                 <div
-                  class="w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-200"
+                  class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl border-2 flex items-center justify-center transition-all duration-200 shadow-2xs"
                   [class.bg-emerald-500]="tarefa.concluida"
                   [class.border-emerald-500]="tarefa.concluida"
                   [class.text-white]="tarefa.concluida"
                   [class.border-slate-300]="!tarefa.concluida"
                   [class.group-hover:border-blue-400]="!tarefa.concluida"
                   [class.bg-white]="!tarefa.concluida"
+                  [class.scale-105]="tarefa.concluida"
                 >
                   @if (tarefa.concluida) {
-                    <svg class="w-4 h-4 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg class="w-5 h-5 stroke-[3] animate-in zoom-in-50 duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   }
@@ -95,19 +96,19 @@ import { Tarefa } from '../../models/cleanup.model';
               </div>
 
               <div class="flex-1 min-w-0">
-                <div class="flex flex-wrap items-center gap-1.5">
+                <div class="flex flex-wrap items-center gap-2">
                   <span
-                    class="text-sm font-medium transition-all"
+                    class="text-base sm:text-lg font-bold transition-all"
                     [class.line-through]="tarefa.concluida"
                     [class.text-slate-400]="tarefa.concluida"
-                    [class.text-slate-800]="!tarefa.concluida"
+                    [class.text-slate-900]="!tarefa.concluida"
                   >
                     {{ tarefa.titulo }}
                   </span>
 
                   <!-- Badge do Cômodo -->
                   <span
-                    class="text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-wider"
+                    class="text-xs font-bold px-2.5 py-0.5 rounded-md uppercase tracking-wider"
                     [ngClass]="getBadgeComodo(tarefa.comodo)"
                   >
                     {{ tarefa.comodo }}
@@ -116,105 +117,106 @@ import { Tarefa } from '../../models/cleanup.model';
 
                 <!-- Info do Último Registro (se concluída) -->
                 @if (tarefa.concluida && getUltimoRegistro(tarefa.titulo); as reg) {
-                  <p class="text-[11px] text-emerald-600 mt-0.5 flex items-center">
-                    <svg class="w-3 h-3 mr-1 text-emerald-500 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <p class="text-xs sm:text-sm text-emerald-700 mt-1 flex items-center font-medium">
+                    <svg class="w-3.5 h-3.5 mr-1 text-emerald-500 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Concluído por <strong>&nbsp;{{ reg.moradorNome }}&nbsp;</strong> às {{ formatarHora(reg.dataHora) }}
+                    Concluído por <strong class="font-bold text-slate-800">&nbsp;{{ reg.moradorNome }}&nbsp;</strong> às {{ formatarHora(reg.dataHora) }}
                   </p>
                 }
               </div>
             </label>
 
-            <!-- Ações Rápidas (Excluir) -->
+            <!-- Ações Rápidas (Excluir com Confirmação) -->
             <button
               type="button"
-              (click)="remover(tarefa.id)"
-              class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500 transition-opacity p-1.5 rounded-lg hover:bg-rose-50"
-              title="Remover tarefa"
+              (click)="solicitarRemover(tarefa)"
+              class="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 text-slate-400 hover:text-rose-600 transition-all p-2 rounded-xl hover:bg-rose-50 cursor-pointer"
+              [title]="'Excluir tarefa ' + tarefa.titulo"
             >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </button>
           </div>
         } @empty {
-          <div class="py-10 text-center">
-            <svg class="w-10 h-10 text-slate-300 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div class="py-12 text-center text-slate-400">
+            <svg class="w-12 h-12 text-slate-300 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
-            <p class="text-xs text-slate-500">Nenhuma tarefa encontrada neste filtro.</p>
+            <p class="text-base font-semibold text-slate-600">Nenhuma tarefa encontrada neste filtro.</p>
           </div>
         }
       </div>
 
-      <!-- Feedback de Registro Rápido -->
-      @if (ultimoAviso()) {
-        <div class="mt-4 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between">
-          <div class="flex items-center">
-            <svg class="w-4 h-4 mr-2 text-emerald-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>{{ ultimoAviso() }}</span>
-          </div>
-          <button (click)="ultimoAviso.set(null)" class="text-emerald-700 hover:text-emerald-900 ml-2">✕</button>
-        </div>
-      }
-
-      <!-- Modal Nova Tarefa -->
+      <!-- Modal Adicionar Nova Tarefa -->
       @if (modalAberto()) {
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h4 class="text-base font-bold text-slate-900">Cadastrar Nova Tarefa</h4>
-              <button (click)="alternarModalAdicionar()" class="text-slate-400 hover:text-slate-600">✕</button>
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div class="absolute inset-0" (click)="alternarModalAdicionar()"></div>
+
+          <div class="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 sm:p-7 z-10 animate-in zoom-in-95 duration-150">
+            <div class="flex items-center justify-between pb-3.5 border-b border-slate-100">
+              <h3 class="text-xl font-extrabold text-slate-900 tracking-tight">Nova Tarefa</h3>
+              <button
+                type="button"
+                (click)="alternarModalAdicionar()"
+                class="text-slate-400 hover:text-slate-700 text-lg font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
             </div>
 
-            <div class="mt-4 space-y-4">
+            <div class="space-y-4 mt-5">
               <div>
-                <label class="block text-xs font-semibold text-slate-700 mb-1">Título da Tarefa</label>
+                <label class="block text-sm font-bold text-slate-700 mb-1.5">
+                  Título da Tarefa
+                </label>
                 <input
                   type="text"
                   [(ngModel)]="novoTitulo"
-                  placeholder="Ex: Limpar geladeira por dentro"
-                  class="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Ex: Lavar panos de prato"
+                  class="w-full text-base px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50/50"
+                  (keydown.enter)="solicitarSalvarNovaTarefa()"
                 />
               </div>
 
               <div>
-                <label class="block text-xs font-semibold text-slate-700 mb-1">Cômodo / Setor</label>
+                <label class="block text-sm font-bold text-slate-700 mb-1.5">
+                  Cômodo
+                </label>
                 <select
                   [(ngModel)]="novoComodo"
-                  class="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  class="w-full text-base px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50/50"
                 >
+                  <option value="Cozinha">Cozinha</option>
+                  <option value="Banheiro">Banheiro</option>
                   <option value="Sala">Sala</option>
                   <option value="Corredor">Corredor</option>
-                  <option value="Banheiro">Banheiro</option>
-                  <option value="Cozinha">Cozinha</option>
                   <option value="Área de Serviço">Área de Serviço</option>
                   <option value="Varanda">Varanda</option>
                   <option value="Área Comum">Área Comum</option>
                 </select>
               </div>
+
+              <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  (click)="alternarModalAdicionar()"
+                  class="py-2.5 px-4 rounded-xl text-slate-600 font-bold hover:bg-slate-100 text-sm cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  (click)="solicitarSalvarNovaTarefa()"
+                  class="py-2.5 px-5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-md transition-all active:scale-95 text-sm cursor-pointer"
+                  [disabled]="!novoTitulo.trim()"
+                >
+                  Adicionar Tarefa
+                </button>
+              </div>
             </div>
 
-            <div class="mt-6 flex items-center justify-end space-x-2">
-              <button
-                type="button"
-                (click)="alternarModalAdicionar()"
-                class="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                (click)="salvarNovaTarefa()"
-                [disabled]="!novoTitulo.trim()"
-                class="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl shadow-xs"
-              >
-                Adicionar Tarefa
-              </button>
-            </div>
           </div>
         </div>
       }
@@ -225,13 +227,25 @@ import { Tarefa } from '../../models/cleanup.model';
 export class ChecklistTarefasComponent {
   service = inject(CleanupService);
 
-  modalAberto = signal(false);
+  modalAberto = signal<boolean>(false);
   novoTitulo = '';
   novoComodo: Tarefa['comodo'] = 'Cozinha';
-  ultimoAviso = signal<string | null>(null);
 
   alternarModalAdicionar(): void {
     this.modalAberto.update(v => !v);
+  }
+
+  solicitarSalvarNovaTarefa(): void {
+    const limpo = this.novoTitulo.trim();
+    if (!limpo) return;
+
+    this.service.solicitarConfirmacao({
+      titulo: 'Tem certeza que deseja incluir?',
+      mensagem: `Deseja adicionar a tarefa "${limpo}" no cômodo ${this.novoComodo}?`,
+      tipo: 'incluir',
+      textoBotaoConfirmar: 'Sim, incluir',
+      acaoConfirmar: () => this.salvarNovaTarefa()
+    });
   }
 
   salvarNovaTarefa(): void {
@@ -253,24 +267,22 @@ export class ChecklistTarefasComponent {
         this.service.setMoradorAtivo(this.service.moradores()[0]);
       } else {
         this.service.abrirModalMembros();
-        this.ultimoAviso.set('Por favor, cadastre ao menos um morador para registrar a limpeza.');
-        setTimeout(() => {
-          if (this.ultimoAviso()) this.ultimoAviso.set(null);
-        }, 4000);
+        this.service.exibirToast('Cadastre ao menos um morador para registrar a limpeza.', 'aviso');
         return;
       }
     }
 
     this.service.alternarTarefa(id);
+  }
 
-    const moradorQueAssinou = this.service.moradorAtivo();
-    if (seraConcluida && moradorQueAssinou) {
-      const horaStr = new Date().toLocaleTimeString('pt-BR');
-      this.ultimoAviso.set(`"${tarefa.titulo}" registrada por ${moradorQueAssinou.nome} às ${horaStr}!`);
-      setTimeout(() => {
-        if (this.ultimoAviso()) this.ultimoAviso.set(null);
-      }, 4000);
-    }
+  solicitarRemover(tarefa: Tarefa): void {
+    this.service.solicitarConfirmacao({
+      titulo: 'Tem certeza que deseja excluir?',
+      mensagem: `Tem certeza que deseja excluir a tarefa "${tarefa.titulo}" (${tarefa.comodo})?`,
+      tipo: 'excluir',
+      textoBotaoConfirmar: 'Sim, excluir',
+      acaoConfirmar: () => this.remover(tarefa.id)
+    });
   }
 
   remover(id: string): void {
@@ -307,4 +319,3 @@ export class ChecklistTarefasComponent {
     }
   }
 }
-
