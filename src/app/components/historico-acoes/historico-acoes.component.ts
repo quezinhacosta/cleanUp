@@ -25,7 +25,7 @@ import { AcaoSistema } from '../../models/cleanup.model';
         </div>
 
         <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
-          {{ service.historicoAcoes().length }} ações
+          {{ service.historicoAcoes().length }}/50 ações
         </span>
       </div>
 
@@ -95,7 +95,7 @@ import { AcaoSistema } from '../../models/cleanup.model';
                 {{ acao.descricao }}
               </p>
               
-              <div class="flex items-center gap-2 mt-1 text-xs text-slate-500">
+              <div class="flex flex-wrap items-center gap-2 mt-1 text-xs text-slate-500">
                 <span class="inline-flex items-center text-slate-600 font-medium">
                   <svg class="w-3 h-3 mr-1 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -115,6 +115,13 @@ import { AcaoSistema } from '../../models/cleanup.model';
                   [class.bg-slate-100]="acao.tipo === 'SISTEMA'"
                 >
                   {{ acao.tipo }}
+                </span>
+                <span class="text-slate-300">&bull;</span>
+                <span class="inline-flex items-center text-slate-500 font-mono text-[11px] font-medium bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200">
+                  <svg class="w-3 h-3 mr-1 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {{ formatarDataHora(acao.dataHora) }}
                 </span>
               </div>
             </div>
@@ -158,5 +165,16 @@ export class HistoricoAcoesComponent {
       case 'TODOS':
       default: return 'Todas';
     }
+  }
+
+  formatarDataHora(data: Date): string {
+    const d = new Date(data);
+    const dia = d.getDate().toString().padStart(2, '0');
+    const mes = (d.getMonth() + 1).toString().padStart(2, '0');
+    const ano = d.getFullYear();
+    const horas = d.getHours().toString().padStart(2, '0');
+    const minutos = d.getMinutes().toString().padStart(2, '0');
+    const segundos = d.getSeconds().toString().padStart(2, '0');
+    return `${dia}/${mes}/${ano} ${horas}:${minutos}:${segundos}`;
   }
 }

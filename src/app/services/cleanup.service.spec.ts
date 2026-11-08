@@ -307,4 +307,19 @@ describe('CleanupService', () => {
     expect(ultimaAcao.tipo).toBe('EXCLUSAO');
     expect(ultimaAcao.descricao).toContain('Morador Teste');
   });
+
+  it('deve limitar o histórico de ações em no máximo 50 itens e descartar as mais velhas (FIFO)', () => {
+    // Registra 55 ações
+    for (let i = 1; i <= 55; i++) {
+      service.registrarAcaoSistema('ALTERACAO', `Ação número ${i}`);
+    }
+
+    const acoes = service.historicoAcoes();
+    expect(acoes.length).toBe(50);
+
+    // A mais recente é a 55 e a mais antiga restante deve ser a 6 (1 a 5 foram descartadas)
+    expect(acoes[0].descricao).toBe('Ação número 55');
+    expect(acoes[acoes.length - 1].descricao).toBe('Ação número 6');
+    expect(acoes.some(a => a.descricao === 'Ação número 1')).toBe(false);
+  });
 });

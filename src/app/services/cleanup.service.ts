@@ -963,7 +963,9 @@ export class CleanupService {
     this.toasts.update(lista => lista.filter(t => t.id !== id));
   }
 
-  // REGISTRO DE AÇÕES DO SISTEMA (REGRA 6)
+  // REGISTRO DE AÇÕES DO SISTEMA (REGRA: Limite de 50 ações, descartando as mais velhas)
+  private readonly MAX_ACOES_HISTORICO = 50;
+
   registrarAcaoSistema(tipo: AcaoSistema['tipo'], descricao: string, autorNome?: string): void {
     const autor = autorNome || this.moradorAtivo()?.nome || 'CleanUp';
     const novaAcao: AcaoSistema = {
@@ -973,7 +975,7 @@ export class CleanupService {
       autorNome: autor,
       dataHora: new Date()
     };
-    this.historicoAcoes.update(lista => [novaAcao, ...lista]);
+    this.historicoAcoes.update(lista => [novaAcao, ...lista].slice(0, this.MAX_ACOES_HISTORICO));
   }
 
   setMoradorAtivo(morador: Morador | null): void {
@@ -1351,7 +1353,7 @@ export class CleanupService {
       const data = localStorage.getItem(STORAGE_KEY_HISTORICO_ACOES);
       if (!data) return [];
       const parsed = JSON.parse(data);
-      return parsed.map((item: any) => ({
+      return parsed.slice(0, 50).map((item: any) => ({
         ...item,
         dataHora: new Date(item.dataHora)
       }));
