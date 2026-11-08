@@ -34,9 +34,11 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
 
     expect(compiled.querySelector('app-header')).toBeTruthy();
-    expect(compiled.querySelector('app-dashboard-resumo')).toBeTruthy();
+    expect(compiled.querySelector('app-seletor-perfil')).toBeTruthy();
+    expect(compiled.querySelector('app-historico-acoes')).toBeTruthy();
     expect(compiled.querySelector('app-checklist-tarefas')).toBeTruthy();
     expect(compiled.querySelector('app-escala-rodizio')).toBeTruthy();
     expect(compiled.querySelector('app-historico-atividades')).toBeTruthy();
+    expect(compiled.querySelector('app-dashboard-resumo')).toBeNull();
   });
 });
