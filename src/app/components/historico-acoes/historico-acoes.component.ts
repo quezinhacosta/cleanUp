@@ -31,7 +31,7 @@ import { AcaoSistema } from '../../models/cleanup.model';
 
       <!-- Filtros Rápidos por Tipo de Ação -->
       <div class="flex items-center gap-1.5 pb-2.5 border-b border-slate-100 overflow-x-auto no-scrollbar">
-        @for (f of ['TODAS', 'INCLUSAO', 'EXCLUSAO', 'ALTERACAO']; track f) {
+        @for (f of ['TODAS', 'ALTERACAO', 'INCLUSAO', 'EXCLUSAO']; track f) {
           <button
             type="button"
             (click)="filtroTipo.set(f)"
@@ -89,7 +89,7 @@ import { AcaoSistema } from '../../models/cleanup.model';
               }
             </div>
 
-            <!-- Conteúdo da Ação -->
+            <!-- Conteúdo da Ação (Sem data e hora, apenas o log) -->
             <div class="flex-1 min-w-0">
               <p class="text-sm sm:text-base font-semibold text-slate-800 leading-snug">
                 {{ acao.descricao }}
@@ -100,11 +100,21 @@ import { AcaoSistema } from '../../models/cleanup.model';
                   <svg class="w-3 h-3 mr-1 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
-                  {{ acao.autorNome || 'Sistema' }}
+                  {{ acao.autorNome || 'CleanUp' }}
                 </span>
-                <span>&bull;</span>
-                <span class="font-mono text-slate-400">
-                  {{ formatarDataHora(acao.dataHora) }}
+                <span class="text-slate-300">&bull;</span>
+                <span
+                  class="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded"
+                  [class.text-emerald-700]="acao.tipo === 'INCLUSAO'"
+                  [class.bg-emerald-50]="acao.tipo === 'INCLUSAO'"
+                  [class.text-rose-700]="acao.tipo === 'EXCLUSAO'"
+                  [class.bg-rose-50]="acao.tipo === 'EXCLUSAO'"
+                  [class.text-blue-700]="acao.tipo === 'ALTERACAO'"
+                  [class.bg-blue-50]="acao.tipo === 'ALTERACAO'"
+                  [class.text-slate-600]="acao.tipo === 'SISTEMA'"
+                  [class.bg-slate-100]="acao.tipo === 'SISTEMA'"
+                >
+                  {{ acao.tipo }}
                 </span>
               </div>
             </div>
@@ -127,12 +137,15 @@ import { AcaoSistema } from '../../models/cleanup.model';
 export class HistoricoAcoesComponent {
   service = inject(CleanupService);
 
-  filtroTipo = signal<string>('TODOS');
+  filtroTipo = signal<string>('TODAS');
 
   acoesFiltradas = computed<AcaoSistema[]>(() => {
     const todas = this.service.historicoAcoes();
     const filtro = this.filtroTipo();
-    if (filtro === 'TODOS') return todas;
+    if (filtro === 'TODAS' || filtro === 'TODOS') return todas;
+    if (filtro === 'ALTERACAO') {
+      return todas.filter(a => a.tipo === 'ALTERACAO' || a.tipo === 'SISTEMA');
+    }
     return todas.filter(a => a.tipo === filtro);
   });
 
@@ -141,18 +154,9 @@ export class HistoricoAcoesComponent {
       case 'INCLUSAO': return 'Inclusões';
       case 'EXCLUSAO': return 'Exclusões';
       case 'ALTERACAO': return 'Alterações';
+      case 'TODAS':
+      case 'TODOS':
       default: return 'Todas';
     }
-  }
-
-  formatarDataHora(data: Date): string {
-    const d = new Date(data);
-    const dia = d.getDate().toString().padStart(2, '0');
-    const mes = (d.getMonth() + 1).toString().padStart(2, '0');
-    const ano = d.getFullYear();
-    const hora = d.getHours().toString().padStart(2, '0');
-    const min = d.getMinutes().toString().padStart(2, '0');
-    const seg = d.getSeconds().toString().padStart(2, '0');
-    return `${dia}/${mes}/${ano} ${hora}:${min}:${seg}`;
   }
 }

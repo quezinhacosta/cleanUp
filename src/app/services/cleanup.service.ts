@@ -185,8 +185,7 @@ export class CleanupService {
       this.moradorAtivo.set(novo);
     }
 
-    // Cada semana é direcionada para cada morador:
-    // Se a escala estiver vazia, gera para o novo morador; se já houver escala, adiciona uma semana dedicada a ele
+    // REGRA: As semanas não podem ser preenchidas automaticamente
     const escalaAtual = this.escala();
     if (escalaAtual.length === 0) {
       this.escala.set(this.gerarEscalaParaMoradores(novosMoradores));
@@ -201,11 +200,10 @@ export class CleanupService {
       proximaDataFim.setHours(23, 59, 59, 999);
 
       const novaSemana: EscalaSemana = {
-        semanaId: `sem-${escalaAtual.length + 1}-${novo.id}`,
+        semanaId: `sem-${escalaAtual.length + 1}`,
         dataInicio: proximaDataInicio,
         dataFim: proximaDataFim,
-        responsaveis: [novo],
-        responsavel: novo,
+        responsaveis: [],
         status: 'PENDENTE'
       };
 
@@ -306,9 +304,10 @@ export class CleanupService {
     baseSegunda.setHours(0, 0, 0, 0);
 
     const escala: EscalaSemana[] = [];
+    const totalSemanas = Math.max(moradores.length, 4);
 
-    // Cada semana é direcionada para cada morador limpar (1 semana por morador)
-    for (let i = 0; i < moradores.length; i++) {
+    // REGRA: As semanas NÃO devem ser preenchidas automaticamente
+    for (let i = 0; i < totalSemanas; i++) {
       const dataInicio = new Date(baseSegunda);
       dataInicio.setDate(baseSegunda.getDate() + i * 7);
 
@@ -316,14 +315,11 @@ export class CleanupService {
       dataFim.setDate(dataInicio.getDate() + 6);
       dataFim.setHours(23, 59, 59, 999);
 
-      const moradorResp = moradores[i];
-
       escala.push({
-        semanaId: `sem-${i + 1}-${moradorResp.id}`,
+        semanaId: `sem-${i + 1}`,
         dataInicio,
         dataFim,
-        responsaveis: [moradorResp],
-        responsavel: moradorResp,
+        responsaveis: [],
         status: i === 0 ? 'EM_ANDAMENTO' : 'PENDENTE'
       });
     }
@@ -541,6 +537,7 @@ export class CleanupService {
 
   mudarMesVisualizacao(ano: number, mes: number): void {
     this.mesVisualizacao.set({ ano, mes });
+    this.registrarAcaoSistema('SISTEMA', `Navegação no calendário: mês de ${this.nomeDoMes(mes)} de ${ano}.`);
   }
 
   avancarMes(): void {
@@ -575,40 +572,13 @@ export class CleanupService {
     const dias = this.escalaDias();
     const todosMoradores = this.moradores();
 
-    // 1. Se tem atribuição específica salva para este dia (inclusive se foi esvaziado explicitamente com [])
+    // REGRA 1: As semanas e dias NÃO podem ser preenchidas automaticamente.
+    // Retorna apenas os moradores explicitamente atribuídos pelo usuário a este dia.
     if (Object.prototype.hasOwnProperty.call(dias, dataIso)) {
       const ids = dias[dataIso] || [];
       return ids
         .map(id => todosMoradores.find(m => m.id === id))
         .filter((m): m is Morador => !!m);
-    }
-
-    // 2. Fallback: verifica se o dia se enquadra em uma semana cadastrada na escala
-    const partes = dataIso.split('-');
-    const targetDate = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]), 12, 0, 0, 0);
-
-    const semanas = this.escala();
-    const sem = semanas.find(s => {
-      const ini = new Date(s.dataInicio);
-      ini.setHours(0, 0, 0, 0);
-      const fim = new Date(s.dataFim);
-      fim.setHours(23, 59, 59, 999);
-      return targetDate >= ini && targetDate <= fim;
-    });
-
-    if (sem && sem.responsaveis && sem.responsaveis.length > 0) {
-      return sem.responsaveis;
-    }
-
-    // 3. Revezamento contínuo cíclico na virada de meses caso caia além das semanas iniciais
-    if (todosMoradores.length > 0 && semanas.length > 0) {
-      const baseIni = new Date(semanas[0].dataInicio);
-      baseIni.setHours(12, 0, 0, 0);
-      const diffDias = Math.floor((targetDate.getTime() - baseIni.getTime()) / (1000 * 60 * 60 * 24));
-      const diffSemanas = Math.floor(diffDias / 7);
-      const cicloIndex = ((diffSemanas % todosMoradores.length) + todosMoradores.length) % todosMoradores.length;
-      const moradorCiclo = todosMoradores[cicloIndex];
-      return moradorCiclo ? [moradorCiclo] : [];
     }
 
     return [];
@@ -623,6 +593,13 @@ export class CleanupService {
       ...mapa,
       [dataIso]: novosIds
     }));
+
+    const morador = this.moradores().find(item => item.id === moradorId);
+    if (morador) {
+      const partes = dataIso.split('-');
+      const dFormatado = `${partes[2]}/${partes[1]}/${partes[0]}`;
+      this.registrarAcaoSistema('ALTERACAO', `${morador.nome} escalado(a) para o dia ${dFormatado}.`, morador.nome);
+    }
 
     // Se o dia atribuído for hoje, garante que o morador ativo fique alinhado
     const hojeIso = this.formatarDataIso(this.dataHoje());
@@ -641,6 +618,13 @@ export class CleanupService {
       ...mapa,
       [dataIso]: novosIds
     }));
+
+    const morador = this.moradores().find(item => item.id === moradorId);
+    if (morador) {
+      const partes = dataIso.split('-');
+      const dFormatado = `${partes[2]}/${partes[1]}/${partes[0]}`;
+      this.registrarAcaoSistema('EXCLUSAO', `${morador.nome} removido(a) da escala do dia ${dFormatado}.`, morador.nome);
+    }
   }
 
   moverMoradorEntreDias(moradorId: string, origemDataIso: string | null, destinoDataIso: string): void {
@@ -650,6 +634,13 @@ export class CleanupService {
       this.removerMoradorDoDia(origemDataIso, moradorId);
     }
     this.atribuirMoradorAoDia(destinoDataIso, moradorId);
+
+    const morador = this.moradores().find(item => item.id === moradorId);
+    if (morador && origemDataIso) {
+      const pOrigem = origemDataIso.split('-');
+      const pDestino = destinoDataIso.split('-');
+      this.registrarAcaoSistema('ALTERACAO', `${morador.nome} movido(a) do dia ${pOrigem[2]}/${pOrigem[1]} para ${pDestino[2]}/${pDestino[1]}.`, morador.nome);
+    }
   }
 
   limparDia(dataIso: string): void {
@@ -747,8 +738,10 @@ export class CleanupService {
     this.atualizarTarefaNoSupabase(tarefaId, novoEstado);
     if (novoRegistro) {
       this.inserirHistoricoNoSupabase(novoRegistro);
+      this.registrarAcaoSistema('ALTERACAO', `Tarefa "${tarefaAlvo.titulo}" (${tarefaAlvo.comodo}) marcada como concluída por ${morador?.nome || 'Morador'}.`, morador?.nome);
       this.exibirToast(`Tarefa "${tarefaAlvo.titulo}" concluída por ${morador?.nome}!`, 'sucesso');
     } else {
+      this.registrarAcaoSistema('ALTERACAO', `Tarefa "${tarefaAlvo.titulo}" (${tarefaAlvo.comodo}) desmarcada.`, morador?.nome);
       this.exibirToast(`Tarefa "${tarefaAlvo.titulo}" desmarcada.`, 'info');
     }
   }
@@ -797,6 +790,8 @@ export class CleanupService {
 
     this.resetarTarefasNoSupabase();
     this.persistirEscalaNoSupabase();
+    this.registrarAcaoSistema('ALTERACAO', 'Ciclo semanal de tarefas reiniciado.');
+    this.exibirToast('Tarefas da semana reiniciadas com sucesso!', 'info');
   }
 
   avancarSemana(): void {
@@ -923,6 +918,7 @@ export class CleanupService {
   setMoradorAtivo(morador: Morador | null): void {
     this.moradorAtivo.set(morador);
     if (morador) {
+      this.registrarAcaoSistema('ALTERACAO', `Perfil ativo alterado para "${morador.nome}".`, morador.nome);
       this.exibirToast(`Perfil ativo: ${morador.nome}`, 'info');
     }
   }
@@ -937,6 +933,7 @@ export class CleanupService {
 
   setFiltroComodo(comodo: string): void {
     this.filtroComodo.set(comodo);
+    this.registrarAcaoSistema('SISTEMA', `Navegação por cômodo: exibindo "${comodo}".`);
   }
 
   // ==========================================

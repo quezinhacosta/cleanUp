@@ -238,51 +238,6 @@ export interface SemanaDoCalendario {
                         Atual
                       </span>
                     }
-
-                    <!-- Ação Rápida: Escalar Semana Inteira via Dropdown -->
-                    <div class="relative">
-                      <button
-                        type="button"
-                        (click)="alternarMenuEscalar(semana.semanaId)"
-                        class="text-[10px] font-medium text-slate-400 hover:text-blue-600 transition-colors"
-                        title="Escalar morador para todos os dias desta semana"
-                      >
-                        + Escalar Semana
-                      </button>
-
-                      @if (menuEscalarAbertoPara() === semana.semanaId) {
-                        <div class="fixed inset-0 z-30" (click)="fecharMenuEscalar()"></div>
-                        <div class="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-40 min-w-[160px] max-h-48 overflow-y-auto">
-                          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
-                            Escalar na semana {{ semana.numero }}:
-                          </div>
-                          @for (m of service.moradores(); track m.id) {
-                            <button
-                              type="button"
-                              (click)="escalarMorador(semana.semanaId, m.id)"
-                              class="w-full flex items-center space-x-2 px-2 py-1.5 rounded-lg text-left text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-                            >
-                              <img
-                                [src]="m.avatarUrl || 'https://ui-avatars.com/api/?name=' + m.nome"
-                                [alt]="m.nome"
-                                class="w-5 h-5 rounded-full object-cover"
-                              />
-                              <span class="truncate font-medium">{{ m.nome }}</span>
-                            </button>
-                          }
-                        </div>
-                      }
-                    </div>
-
-                    <!-- Esvaziar Semana -->
-                    <button
-                      type="button"
-                      (click)="solicitarLimparSemana(semana.semanaId, semana.label)"
-                      class="text-xs font-semibold text-slate-400 hover:text-red-500 transition-colors px-1 py-0.5 rounded hover:bg-red-50"
-                      title="Limpar moradores desta semana"
-                    >
-                      Limpar
-                    </button>
                   </div>
                 </div>
 

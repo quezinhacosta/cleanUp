@@ -446,6 +446,20 @@ describe('CleanUp Components Test Suite', () => {
       expect(comp.acoesFiltradas().length).toBe(1);
       expect(comp.acoesFiltradas()[0].descricao).toBe('Morador Maria inserido');
     });
+
+    it('não deve exibir data e hora no histórico de ações, somente o log', () => {
+      const service = TestBed.inject(CleanupService);
+      service.registrarAcaoSistema('INCLUSAO', 'Morador Teste cadastrado', 'Admin');
+
+      const fixture = TestBed.createComponent(HistoricoAcoesComponent);
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('Morador Teste cadastrado');
+      expect(compiled.textContent).toContain('INCLUSAO');
+      // Não deve conter formato de data DD/MM/YYYY no card de ações
+      expect(compiled.textContent).not.toMatch(/\d{2}\/\d{2}\/\d{4}/);
+    });
   });
 
   describe('Regra de Exclusão de Morador e Limpeza Total', () => {
