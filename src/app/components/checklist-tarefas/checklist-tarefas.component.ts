@@ -83,7 +83,13 @@ import { Tarefa } from '../../models/cleanup.model';
             [class.opacity-75]="tarefa.concluida"
           >
             <!-- Checkbox Customizado + Detalhes -->
-            <label [for]="'tarefa-' + tarefa.id" class="flex items-start sm:items-center space-x-3.5 flex-1 cursor-pointer select-none">
+            <label
+              [for]="'tarefa-' + tarefa.id"
+              class="flex items-start sm:items-center space-x-3.5 flex-1 select-none"
+              [class.cursor-pointer]="service.podeAlterarTarefa(tarefa.id)"
+              [class.cursor-not-allowed]="!service.podeAlterarTarefa(tarefa.id)"
+              [title]="service.podeAlterarTarefa(tarefa.id) ? (tarefa.concluida ? 'Clique para desmarcar' : 'Clique para marcar como concluída') : 'Concluída em dia anterior (registro permanente e imutável)'"
+            >
               <div class="relative flex items-center justify-center mt-0.5 sm:mt-0">
                 <input
                   type="checkbox"
@@ -94,8 +100,10 @@ import { Tarefa } from '../../models/cleanup.model';
                 />
                 <div
                   class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl border-2 flex items-center justify-center transition-all duration-200 shadow-2xs"
-                  [class.bg-emerald-500]="tarefa.concluida"
-                  [class.border-emerald-500]="tarefa.concluida"
+                  [class.bg-emerald-500]="tarefa.concluida && service.podeAlterarTarefa(tarefa.id)"
+                  [class.border-emerald-500]="tarefa.concluida && service.podeAlterarTarefa(tarefa.id)"
+                  [class.bg-slate-600]="tarefa.concluida && !service.podeAlterarTarefa(tarefa.id)"
+                  [class.border-slate-600]="tarefa.concluida && !service.podeAlterarTarefa(tarefa.id)"
                   [class.text-white]="tarefa.concluida"
                   [class.border-slate-300]="!tarefa.concluida"
                   [class.group-hover:border-blue-400]="!tarefa.concluida"
@@ -103,9 +111,16 @@ import { Tarefa } from '../../models/cleanup.model';
                   [class.scale-105]="tarefa.concluida"
                 >
                   @if (tarefa.concluida) {
-                    <svg class="w-5 h-5 stroke-[3] animate-in zoom-in-50 duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
+                    @if (service.podeAlterarTarefa(tarefa.id)) {
+                      <svg class="w-5 h-5 stroke-[3] animate-in zoom-in-50 duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    } @else {
+                      <!-- Ícone de Cadeado para indicar imutabilidade de faxina de dia anterior -->
+                      <svg class="w-4 h-4 stroke-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    }
                   }
                 </div>
               </div>
@@ -128,6 +143,22 @@ import { Tarefa } from '../../models/cleanup.model';
                   >
                     {{ tarefa.comodo }}
                   </span>
+
+                  <!-- Badge explicativa do status da faxina -->
+                  @if (tarefa.concluida) {
+                    @if (service.podeAlterarTarefa(tarefa.id)) {
+                      <span class="text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        Concluída hoje (editável)
+                      </span>
+                    } @else {
+                      <span class="text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
+                        <svg class="w-3 h-3 text-slate-400 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        Dia anterior (permanente)
+                      </span>
+                    }
+                  }
                 </div>
 
                 <!-- Info do Último Registro (se concluída) -->
@@ -136,7 +167,7 @@ import { Tarefa } from '../../models/cleanup.model';
                     <svg class="w-3.5 h-3.5 mr-1 text-emerald-500 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Concluído por <strong class="font-bold text-slate-800">&nbsp;{{ reg.moradorNome }}&nbsp;</strong> às {{ formatarHora(reg.dataHora) }}
+                    Concluído por <strong class="font-bold text-slate-800">&nbsp;{{ reg.moradorNome }}&nbsp;</strong> em {{ formatarDataHora(reg.dataHora) }}
                   </p>
                 }
               </div>
@@ -315,12 +346,32 @@ export class ChecklistTarefasComponent {
   }
 
   getUltimoRegistro(tarefaNome: string) {
-    return this.service.historico().find(h => h.tarefaNome === tarefaNome);
+    const registros = this.service.historico()
+      .filter(h => h.tarefaNome === tarefaNome)
+      .sort((a, b) => new Date(b.dataHora).getTime() - new Date(a.dataHora).getTime());
+    return registros[0];
   }
 
   formatarHora(data: Date): string {
     const d = new Date(data);
     return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  formatarDataHora(data: Date): string {
+    const d = new Date(data);
+    const hoje = this.service.dataHoje();
+    const ehHoje =
+      d.getFullYear() === hoje.getFullYear() &&
+      d.getMonth() === hoje.getMonth() &&
+      d.getDate() === hoje.getDate();
+    const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    if (ehHoje) {
+      return `hoje às ${hora}`;
+    }
+    const dia = d.getDate().toString().padStart(2, '0');
+    const mes = (d.getMonth() + 1).toString().padStart(2, '0');
+    return `${dia}/${mes} às ${hora}`;
   }
 
   getBadgeComodo(comodo: Tarefa['comodo']): string {

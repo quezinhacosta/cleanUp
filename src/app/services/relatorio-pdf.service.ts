@@ -20,6 +20,9 @@ export class RelatorioPdfService {
    * Gera e faz o download imediato do relatório em PDF para um morador específico
    */
   gerarRelatorioMorador(morador: Morador, historico: RegistroLimpeza[], todasTarefas: Tarefa[]): jsPDF {
+    if (!morador || !morador.id) {
+      throw new Error('Morador inválido para emissão de relatório');
+    }
     const doc = this.criarDocumento();
 
     const registrosDoMorador = historico

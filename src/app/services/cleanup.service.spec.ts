@@ -232,4 +232,79 @@ describe('CleanupService', () => {
     service.voltarMes();
     expect(service.mesVisualizacao()).toEqual({ ano: 2026, mes: 10 });
   });
+
+  it('deve permitir marcar tarefa e desmarcar no mesmo dia, removendo o registro do histórico', () => {
+    const m1 = service.adicionarMorador('Quezia Costa');
+    const tarefa = service.tarefas()[0]; // 'Limpar Sala'
+
+    // 1. Marca a tarefa hoje
+    service.alternarTarefa(tarefa.id);
+    expect(service.tarefas().find(t => t.id === tarefa.id)?.concluida).toBe(true);
+    expect(service.historico().length).toBe(1);
+    expect(service.historico()[0].tarefaNome).toBe(tarefa.titulo);
+    expect(service.podeAlterarTarefa(tarefa.id)).toBe(true);
+
+    // 2. Desmarca a tarefa no mesmo dia
+    service.alternarTarefa(tarefa.id);
+    expect(service.tarefas().find(t => t.id === tarefa.id)?.concluida).toBe(false);
+    expect(service.historico().length).toBe(0);
+  });
+
+  it('deve impedir desmarcar tarefa concluída em data anterior, mantendo a conclusão e o histórico', () => {
+    const m1 = service.adicionarMorador('Quezia Costa');
+    const tarefa = service.tarefas()[0]; // 'Limpar Sala'
+
+    // Insere manualmente registro de ontem no histórico
+    const ontem = new Date();
+    ontem.setDate(ontem.getDate() - 1);
+    service.historico.set([{
+      id: 'reg-antigo',
+      moradorId: m1.id,
+      moradorNome: m1.nome,
+      tarefaNome: tarefa.titulo,
+      dataHora: ontem
+    }]);
+
+    // Marca tarefa como concluída
+    service.tarefas.update(lista =>
+      lista.map(t => (t.id === tarefa.id ? { ...t, concluida: true } : t))
+    );
+
+    expect(service.podeAlterarTarefa(tarefa.id)).toBe(false);
+
+    // Tenta desmarcar
+    service.alternarTarefa(tarefa.id);
+
+    // A tarefa DEVE continuar concluída e o histórico inalterado
+    expect(service.tarefas().find(t => t.id === tarefa.id)?.concluida).toBe(true);
+    expect(service.historico().length).toBe(1);
+    expect(service.toasts().some(t => t.mensagem.includes('dias anteriores'))).toBe(true);
+  });
+
+  it('ao remover morador, deve registrar exclusão nas ações do cleanup, apagar seu histórico de limpeza e resetar tarefas', () => {
+    const m1 = service.adicionarMorador('Morador Teste');
+    const tarefa = service.tarefas()[0];
+
+    // Conclui tarefa com esse morador
+    service.alternarTarefa(tarefa.id, m1);
+    expect(service.historico().length).toBe(1);
+    expect(service.tarefas().find(t => t.id === tarefa.id)?.concluida).toBe(true);
+
+    const qtdAcoesAntes = service.historicoAcoes().length;
+
+    // Remove o morador
+    service.removerMorador(m1.id);
+
+    // Histórico de faxinas do morador deve ser zerado
+    expect(service.historico().length).toBe(0);
+
+    // Tarefa deve ter sido resetada para não concluída pois o registro foi excluído
+    expect(service.tarefas().find(t => t.id === tarefa.id)?.concluida).toBe(false);
+
+    // Histórico de Ações do CleanUp (auditoria) DEVE conter o log permanente de exclusão
+    expect(service.historicoAcoes().length).toBeGreaterThan(qtdAcoesAntes);
+    const ultimaAcao = service.historicoAcoes()[0];
+    expect(ultimaAcao.tipo).toBe('EXCLUSAO');
+    expect(ultimaAcao.descricao).toContain('Morador Teste');
+  });
 });

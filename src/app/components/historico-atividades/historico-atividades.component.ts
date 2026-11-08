@@ -274,6 +274,11 @@ export class HistoricoAtividadesComponent {
 
   baixarPdfMoradorECerrar(morador: Morador): void {
     this.fecharMenuPdf();
+    const moradorExiste = this.service.moradores().some(m => m.id === morador.id);
+    if (!moradorExiste) {
+      this.service.exibirToast('Não é possível emitir relatório: este usuário foi excluído do sistema.', 'erro');
+      return;
+    }
     this.pdfService.gerarRelatorioMorador(
       morador,
       this.service.historico(),

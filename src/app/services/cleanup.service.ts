@@ -230,13 +230,30 @@ export class CleanupService {
     this.historico.update(lista => lista.filter(reg => reg.moradorId !== id));
     this.safeRun(supabase.from('historico_limpeza').delete().eq('morador_id', id));
 
+    // Se o filtro ativo no histórico era esse morador, reseta para TODOS
+    if (this.filtroMorador() === id) {
+      this.filtroMorador.set('TODOS');
+    }
+
+    // Se tarefas estavam marcadas como concluídas por esse morador e agora não têm mais nenhum registro ativo, desmarca
+    const titulosNoHistorico = new Set(this.historico().map(h => h.tarefaNome));
+    this.tarefas.update(lista =>
+      lista.map(t => {
+        if (t.concluida && !titulosNoHistorico.has(t.titulo)) {
+          this.atualizarTarefaNoSupabase(t.id, false);
+          return { ...t, concluida: false };
+        }
+        return t;
+      })
+    );
+
     if (novosMoradores.length === 0) {
       this.moradorAtivo.set(null);
       this.escala.set([]);
       this.escalaDias.set({});
       this.excluirMoradorDoSupabase(id);
       this.persistirEscalaNoSupabase();
-      this.registrarAcaoSistema('EXCLUSAO', `Morador(a) "${moradorRemovido?.nome || 'Membro'}" foi excluído(a) e todos os registros foram apagados.`);
+      this.registrarAcaoSistema('EXCLUSAO', `Morador(a) "${moradorRemovido?.nome || 'Membro'}" foi excluído(a) e todos os registros foram apagados.`, 'CleanUp');
       this.exibirToast(`Morador(a) "${moradorRemovido?.nome || 'Membro'}" e todos os seus dados foram excluídos.`, 'aviso');
       return;
     }
@@ -287,8 +304,8 @@ export class CleanupService {
     this.excluirMoradorDoSupabase(id);
     this.persistirEscalaNoSupabase();
 
-    // Registra ação no Histórico do Sistema e exibe feedback visual
-    this.registrarAcaoSistema('EXCLUSAO', `Morador(a) "${moradorRemovido?.nome || 'Membro'}" foi excluído(a) e todos os seus registros foram apagados.`);
+    // Registra ação no Histórico do Sistema (imutável) e exibe feedback visual
+    this.registrarAcaoSistema('EXCLUSAO', `Morador(a) "${moradorRemovido?.nome || 'Membro'}" foi excluído(a) e todos os seus registros foram apagados.`, 'CleanUp');
     this.exibirToast(`Morador(a) "${moradorRemovido?.nome || 'Membro'}" e todos os seus dados foram excluídos.`, 'aviso');
   }
 
@@ -709,40 +726,95 @@ export class CleanupService {
 
   // AÇÕES DO CHECKLIST E CICLO
 
+  /**
+   * Verifica se uma tarefa pode ser alterada.
+   * Regra do negócio: se a tarefa não está concluída, pode ser concluída hoje.
+   * Se já está concluída, só pode ser desmarcada/alterada se a faxina foi concluída no mesmo dia (hoje).
+   * Registros de dias anteriores são permanentes e imutáveis.
+   */
+  podeAlterarTarefa(tarefaId: string): boolean {
+    const tarefa = this.tarefas().find(t => t.id === tarefaId);
+    if (!tarefa) return false;
+    if (!tarefa.concluida) return true;
+
+    const registrosDaTarefa = this.historico()
+      .filter(h => h.tarefaNome === tarefa.titulo)
+      .sort((a, b) => new Date(b.dataHora).getTime() - new Date(a.dataHora).getTime());
+    const ultimoReg = registrosDaTarefa[0];
+    if (!ultimoReg) return true;
+
+    const dReg = new Date(ultimoReg.dataHora);
+    const agora = this.dataHoje();
+    return (
+      dReg.getFullYear() === agora.getFullYear() &&
+      dReg.getMonth() === agora.getMonth() &&
+      dReg.getDate() === agora.getDate()
+    );
+  }
+
   alternarTarefa(tarefaId: string, moradorResponsavel?: Morador): void {
     const morador = moradorResponsavel || this.moradorAtivo();
     const tarefaAlvo = this.tarefas().find(t => t.id === tarefaId);
     if (!tarefaAlvo) return;
 
-    const novoEstado = !tarefaAlvo.concluida;
+    // Se a tarefa está atualmente concluída e o usuário deseja desmarcar/alterar:
+    if (tarefaAlvo.concluida) {
+      const registrosDaTarefa = this.historico()
+        .filter(h => h.tarefaNome === tarefaAlvo.titulo)
+        .sort((a, b) => new Date(b.dataHora).getTime() - new Date(a.dataHora).getTime());
+      const ultimoReg = registrosDaTarefa[0];
+
+      if (ultimoReg) {
+        const dReg = new Date(ultimoReg.dataHora);
+        const agora = this.dataHoje();
+        const mesmoDia =
+          dReg.getFullYear() === agora.getFullYear() &&
+          dReg.getMonth() === agora.getMonth() &&
+          dReg.getDate() === agora.getDate();
+
+        // REGRA: Apenas se o usuário marcou naquele dia, ele ainda pode alterar o que colocou
+        if (!mesmoDia) {
+          this.exibirToast(
+            'Não é permitido alterar ou desmarcar faxinas de dias anteriores. Apenas marcações feitas hoje podem ser modificadas.',
+            'aviso',
+            'Registro Permanente'
+          );
+          return;
+        }
+
+        // Se foi feita hoje, remove o registro de hoje do histórico de faxinas e do Supabase
+        this.historico.update(logs => logs.filter(h => h.id !== ultimoReg.id));
+        this.safeRun(supabase.from('historico_limpeza').delete().eq('id', ultimoReg.id));
+      }
+
+      this.tarefas.update(lista =>
+        lista.map(t => (t.id === tarefaId ? { ...t, concluida: false } : t))
+      );
+      this.atualizarTarefaNoSupabase(tarefaId, false);
+      this.registrarAcaoSistema('ALTERACAO', `Tarefa "${tarefaAlvo.titulo}" (${tarefaAlvo.comodo}) desmarcada/corrigida.`, morador?.nome);
+      this.exibirToast(`Tarefa "${tarefaAlvo.titulo}" desmarcada.`, 'info');
+      return;
+    }
+
+    // Se a tarefa não está concluída e o usuário está marcando como concluída agora:
+    const novoRegistro: RegistroLimpeza = {
+      id: `reg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      moradorId: morador ? morador.id : 'avulso',
+      moradorNome: morador ? morador.nome : 'Morador',
+      tarefaNome: tarefaAlvo.titulo,
+      dataHora: new Date()
+    };
 
     this.tarefas.update(lista =>
-      lista.map(t => (t.id === tarefaId ? { ...t, concluida: novoEstado } : t))
+      lista.map(t => (t.id === tarefaId ? { ...t, concluida: true } : t))
     );
-
-    let novoRegistro: RegistroLimpeza | null = null;
-    if (novoEstado && morador) {
-      novoRegistro = {
-        id: `reg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        moradorId: morador.id,
-        moradorNome: morador.nome,
-        tarefaNome: tarefaAlvo.titulo,
-        dataHora: new Date()
-      };
-
-      this.historico.update(logs => [novoRegistro!, ...logs]);
-    }
+    this.historico.update(logs => [novoRegistro, ...logs]);
 
     // Sincroniza com o Supabase
-    this.atualizarTarefaNoSupabase(tarefaId, novoEstado);
-    if (novoRegistro) {
-      this.inserirHistoricoNoSupabase(novoRegistro);
-      this.registrarAcaoSistema('ALTERACAO', `Tarefa "${tarefaAlvo.titulo}" (${tarefaAlvo.comodo}) marcada como concluída por ${morador?.nome || 'Morador'}.`, morador?.nome);
-      this.exibirToast(`Tarefa "${tarefaAlvo.titulo}" concluída por ${morador?.nome}!`, 'sucesso');
-    } else {
-      this.registrarAcaoSistema('ALTERACAO', `Tarefa "${tarefaAlvo.titulo}" (${tarefaAlvo.comodo}) desmarcada.`, morador?.nome);
-      this.exibirToast(`Tarefa "${tarefaAlvo.titulo}" desmarcada.`, 'info');
-    }
+    this.atualizarTarefaNoSupabase(tarefaId, true);
+    this.inserirHistoricoNoSupabase(novoRegistro);
+    this.registrarAcaoSistema('ALTERACAO', `Tarefa "${tarefaAlvo.titulo}" (${tarefaAlvo.comodo}) marcada como concluída por ${morador?.nome || 'Morador'}.`, morador?.nome);
+    this.exibirToast(`Tarefa "${tarefaAlvo.titulo}" concluída por ${morador?.nome}!`, 'sucesso');
   }
 
   adicionarTarefa(titulo: string, comodo: Tarefa['comodo']): void {
@@ -858,12 +930,6 @@ export class CleanupService {
     this.exibirToast(`Semana avançada! Responsável atual: ${novoResponsavel}`, 'info');
   }
 
-  limparHistorico(): void {
-    this.historico.set([]);
-    this.limparHistoricoNoSupabase();
-    this.registrarAcaoSistema('EXCLUSAO', 'Histórico de tarefas de limpeza foi esvaziado.');
-  }
-
   // CONTROLE DE CONFIRMAÇÕES VISUAIS (REGRA 2)
   solicitarConfirmacao(pedido: PedidoConfirmacao): void {
     this.confirmacaoPendente.set(pedido);
@@ -908,10 +974,6 @@ export class CleanupService {
       dataHora: new Date()
     };
     this.historicoAcoes.update(lista => [novaAcao, ...lista]);
-  }
-
-  limparHistoricoAcoes(): void {
-    this.historicoAcoes.set([]);
   }
 
   setMoradorAtivo(morador: Morador | null): void {
@@ -1176,10 +1238,6 @@ export class CleanupService {
       tarefa_nome: registro.tarefaNome,
       data_hora: registro.dataHora.toISOString()
     }));
-  }
-
-  private limparHistoricoNoSupabase(): void {
-    this.safeRun(supabase.from('historico_limpeza').delete().neq('id', ''));
   }
 
   private async salvarTarefasIniciaisNoSupabase(): Promise<void> {
