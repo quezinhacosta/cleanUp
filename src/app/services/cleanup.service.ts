@@ -304,10 +304,9 @@ export class CleanupService {
     baseSegunda.setHours(0, 0, 0, 0);
 
     const escala: EscalaSemana[] = [];
-    const totalSemanas = Math.max(moradores.length, 4);
 
     // REGRA: As semanas NÃO devem ser preenchidas automaticamente
-    for (let i = 0; i < totalSemanas; i++) {
+    for (let i = 0; i < moradores.length; i++) {
       const dataInicio = new Date(baseSegunda);
       dataInicio.setDate(baseSegunda.getDate() + i * 7);
 
